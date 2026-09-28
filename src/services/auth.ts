@@ -25,6 +25,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
+// Verified against when no user matches, so unknown emails take as long as wrong passwords.
+const dummyHash = hashPassword(randomBytes(32).toString("hex"));
+
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export type AuthenticatedSession = RequestActor & { email: string; displayName: string; organizationName: string };
@@ -44,8 +47,10 @@ export class AuthService {
       WHERE lower(u.email) = lower($1) AND ($2::uuid IS NULL OR o.id = $2)
       ORDER BY m.created_at ASC LIMIT 1`, [email, organizationId ?? null]);
     const row = result.rows[0];
-    if (!row?.passwordHash || !(await verifyPassword(password, row.passwordHash))) throw new AuthenticationError();
+    const valid = await verifyPassword(password, row?.passwordHash ?? await dummyHash);
+    if (!row?.passwordHash || !valid) throw new AuthenticationError();
 
+    await this.pool.query(`DELETE FROM sessions WHERE expires_at <= now()`);
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + this.ttlHours * 60 * 60 * 1000);
     await this.pool.query(`INSERT INTO sessions (token_hash, user_id, organization_id, expires_at)
@@ -67,7 +72,8 @@ export class AuthService {
       WHERE s.token_hash = $1 AND s.expires_at > now()`, [tokenHash(token)]);
     const row = result.rows[0];
     if (!row) throw new AuthenticationError("Your session is invalid or has expired");
-    await this.pool.query(`UPDATE sessions SET last_seen_at = now() WHERE token_hash = $1`, [tokenHash(token)]);
+    await this.pool.query(`UPDATE sessions SET last_seen_at = now()
+      WHERE token_hash = $1 AND last_seen_at < now() - interval '5 minutes'`, [tokenHash(token)]);
     return { ...row, correlationId };
   }
 

@@ -10,6 +10,13 @@ describe("password authentication", () => {
     await expect(verifyPassword("wrong password", first)).resolves.toBe(false);
   });
 
+  it("rejects an unknown email without creating a session", async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const service = new AuthService({ query } as never, 12);
+    await expect(service.login("nobody@example.test", "a-secure-password")).rejects.toBeInstanceOf(AuthenticationError);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects an unknown session before authorization", async () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const service = new AuthService({ query } as never, 12);

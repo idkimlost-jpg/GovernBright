@@ -19,6 +19,10 @@ const selectFields = `id, organization_id AS "organizationId", name, purpose, ve
  owner_name AS "ownerName", risk_tier AS "riskTier", status,
  next_review_at::text AS "nextReviewAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
 
+export class ConflictError extends Error {
+  readonly statusCode = 409;
+}
+
 export class AiSystemService {
   constructor(private readonly pool: pg.Pool) {}
 
@@ -36,6 +40,7 @@ export class AiSystemService {
 
   async create(actor: RequestActor, input: AiSystemInput): Promise<AiSystem> {
     requirePermission(actor, "ai_system:create");
+    if (input.status === "approved") requirePermission(actor, "ai_system:approve");
     const id = randomUUID();
     const client = await this.pool.connect();
     try {
@@ -52,6 +57,7 @@ export class AiSystemService {
       return result.rows[0]!;
     } catch (error) {
       await client.query("ROLLBACK");
+      if ((error as { code?: string }).code === "23505") throw new ConflictError("An AI system with this name already exists");
       throw error;
     } finally { client.release(); }
   }

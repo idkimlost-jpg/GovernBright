@@ -3,6 +3,8 @@ const loginView = $("#login-view");
 const dashboardView = $("#dashboard-view");
 const contentGrid = $(".content-grid");
 const createPanel = $("#create-panel");
+const canCreate = new Set(["owner", "admin", "contributor"]);
+const canApprove = new Set(["owner", "admin"]);
 
 async function request(url, options = {}) {
   const response = await fetch(url, { credentials: "same-origin", headers: { "content-type": "application/json", ...(options.headers || {}) }, ...options });
@@ -17,9 +19,12 @@ function showDashboard(user) {
   loginView.classList.add("hidden"); dashboardView.classList.remove("hidden");
   $("#organization-name").textContent = user.organizationName;
   $("#user-name").textContent = `${user.displayName} · ${user.role.replace("_", " ")}`;
+  $("#open-create").classList.toggle("hidden", !canCreate.has(user.role));
+  $("#status-approved").disabled = !canApprove.has(user.role);
+  $("#status-approved").hidden = !canApprove.has(user.role);
 }
-function badge(value) { const safe = String(value); return `<span class="badge ${safe}">${safe.replace("_", " ")}</span>`; }
 function escapeHtml(value) { const span = document.createElement("span"); span.textContent = value ?? ""; return span.innerHTML; }
+function badge(value) { const text = String(value); const token = text.replace(/[^a-z_]/g, ""); return `<span class="badge ${token}">${escapeHtml(text.replace("_", " "))}</span>`; }
 
 async function loadSystems() {
   const systems = await request("/api/v1/ai-systems");
@@ -38,7 +43,11 @@ $("#login-form").addEventListener("submit", async event => {
   try { const data = await request("/api/v1/auth/login", { method: "POST", body: JSON.stringify(Object.fromEntries(form)) }); showDashboard(data.user); await loadSystems(); }
   catch (error) { $("#login-error").textContent = error.message; }
 });
-$("#logout").addEventListener("click", async () => { await request("/api/v1/auth/logout", { method: "POST", body: "{}" }); showLogin(); });
+$("#logout").addEventListener("click", async () => {
+  try { await request("/api/v1/auth/logout", { method: "POST", body: "{}" }); }
+  catch (error) { console.error("Sign-out request failed", error); }
+  showLogin();
+});
 $("#open-create").addEventListener("click", () => { createPanel.classList.remove("hidden"); contentGrid.classList.add("has-form"); });
 $("#close-create").addEventListener("click", () => { createPanel.classList.add("hidden"); contentGrid.classList.remove("has-form"); });
 $("#create-form").addEventListener("submit", async event => {

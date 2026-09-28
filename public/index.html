@@ -57,7 +57,7 @@
               <label>System name<input name="name" minlength="2" maxlength="200" required></label>
               <label>Purpose<textarea name="purpose" minlength="2" maxlength="5000" required></textarea></label>
               <div class="form-row"><label>Vendor<input name="vendor" required></label><label>Business owner<input name="ownerName" required></label></div>
-              <div class="form-row"><label>Risk tier<select name="riskTier"><option value="low">Low</option><option value="moderate" selected>Moderate</option><option value="high">High</option><option value="prohibited">Prohibited</option></select></label><label>Status<select name="status"><option value="draft">Draft</option><option value="under_review">Under review</option><option value="approved">Approved</option></select></label></div>
+              <div class="form-row"><label>Risk tier<select name="riskTier"><option value="low">Low</option><option value="moderate" selected>Moderate</option><option value="high">High</option><option value="prohibited">Prohibited</option></select></label><label>Status<select name="status"><option value="draft">Draft</option><option value="under_review">Under review</option><option id="status-approved" value="approved">Approved</option></select></label></div>
               <label>Next review date<input name="nextReviewAt" type="date"></label>
               <button type="submit">Save system</button><p id="create-error" class="error" role="alert"></p>
             </form>

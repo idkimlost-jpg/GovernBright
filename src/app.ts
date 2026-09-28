@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
@@ -10,7 +11,7 @@ import type { AuthService } from "./services/auth.js";
 import { registerRoutes } from "./http/routes.js";
 
 export async function buildApp(config: Config, service: AiSystemService, auth: AuthService) {
-  const app = Fastify({ logger: { redact: ["req.headers.authorization", "req.headers.cookie"] }, requestIdHeader: "x-correlation-id" });
+  const app = Fastify({ logger: { redact: ["req.headers.authorization", "req.headers.cookie"] }, requestIdHeader: false, genReqId: () => randomUUID() });
   await app.register(helmet);
   await app.register(cookie);
   await app.register(rateLimit, { global: false });

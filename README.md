@@ -33,7 +33,9 @@ The application now has database-backed authentication and membership resolution
    `ADMIN_EMAIL=owner@example.com ADMIN_PASSWORD='use-a-long-unique-password' ADMIN_NAME='Owner Name' ORGANIZATION_NAME='Example Company' npm run admin:create`
 6. Run `npm run dev` and open `http://localhost:3000`.
 
-Normal use authenticates through the dashboard. The development header adapter remains available only outside production when `ALLOW_DEV_AUTH=true`.
+Normal use authenticates through the dashboard. The development header adapter lets any caller impersonate any user, so it is off by default and only works outside production when `ALLOW_DEV_AUTH=true`; the app refuses to start in production with it enabled or without `APP_ORIGIN`.
+
+`docker compose up` runs the `migrate` service (`node dist/db/migrate.js`) before starting the app.
 
 ## API
 

@@ -1,8 +1,36 @@
 import { randomUUID } from "node:crypto";
-import { and,asc,eq } from "drizzle-orm";
-import { getDb } from "../../../db";
-import { approvedUsers,auditEvents } from "../../../db/schema";
-function viewer(r:Request){const userId=r.headers.get("oai-authenticated-user-id"),email=r.headers.get("oai-authenticated-user-email")?.toLowerCase();if(!userId||!email)throw new Error("Authentication required");return {userId,email,organizationId:userId}}
-async function current(r:Request){const v=viewer(r),db=getDb();let rows=await db.select().from(approvedUsers).where(eq(approvedUsers.email,v.email)).limit(1);if(!rows[0]){const any=await db.select().from(approvedUsers).limit(1);if(!any[0]){const now=new Date().toISOString();await db.insert(approvedUsers).values({id:randomUUID(),organizationId:v.userId,email:v.email,userId:v.userId,displayName:v.email,role:"admin",status:"approved",approvedBy:v.userId,approvedAt:now,updatedAt:now});rows=await db.select().from(approvedUsers).where(eq(approvedUsers.email,v.email)).limit(1)}}const user=rows[0];if(user&&user.userId!==v.userId)await db.update(approvedUsers).set({userId:v.userId,updatedAt:new Date().toISOString()}).where(eq(approvedUsers.id,user.id));return {viewer:v,user:user?{...user,userId:v.userId}:null}}
-export async function GET(r:Request){try{const {user}=await current(r);if(!user)return Response.json({me:null,users:[]});const users=user.role==="admin"?await getDb().select().from(approvedUsers).where(eq(approvedUsers.organizationId,user.organizationId)).orderBy(asc(approvedUsers.email)):[];return Response.json({me:user,users})}catch(e){return Response.json({error:e instanceof Error?e.message:"Unable to check access"},{status:500})}}
-export async function POST(r:Request){try{const {viewer:userViewer,user}=await current(r);if(!user||user.role!=="admin"||user.status!=="approved")return Response.json({error:"Administrator approval required"},{status:403});const p=await r.json() as {email?:string;displayName?:string},email=p.email?.trim().toLowerCase();if(!email||!email.includes("@"))return Response.json({error:"A valid employee email is required"},{status:400});const now=new Date().toISOString(),db=getDb();await db.batch([db.insert(approvedUsers).values({id:randomUUID(),organizationId:user.organizationId,email,displayName:p.displayName?.trim().slice(0,120)||email,role:"employee",status:"approved",approvedBy:userViewer.userId,approvedAt:now,updatedAt:now}).onConflictDoUpdate({target:[approvedUsers.organizationId,approvedUsers.email],set:{status:"approved",displayName:p.displayName?.trim().slice(0,120)||email,approvedBy:userViewer.userId,approvedAt:now,updatedAt:now}}),db.insert(auditEvents).values({id:randomUUID(),organizationId:user.organizationId,actorUserId:userViewer.userId,action:"user.chatgpt_access_approved",targetType:"user",metadata:JSON.stringify({email}),createdAt:now})]);return Response.json({approved:true},{status:201})}catch(e){return Response.json({error:e instanceof Error?e.message:"Unable to approve employee"},{status:500})}}
+import { asc, eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { approvedUsers, auditEvents } from "@/db/schema";
+import { handle, membership, readJson, requireAdministrator, requireSameOrigin, text, viewer } from "@/lib/server/governance";
+
+export async function GET(request: Request) {
+  return handle("check access", async () => {
+    const me = await membership(viewer(request));
+    if (!me) return Response.json({ me: null, users: [] });
+    const users = me.role === "admin"
+      ? await getDb().select().from(approvedUsers).where(eq(approvedUsers.organizationId, me.organizationId)).orderBy(asc(approvedUsers.email))
+      : [];
+    return Response.json({ me, users });
+  });
+}
+
+export async function POST(request: Request) {
+  return handle("approve employee", async () => {
+    requireSameOrigin(request);
+    const v = viewer(request);
+    const admin = await requireAdministrator(v);
+    const body = await readJson(request);
+    const email = text(body, "email", 320).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: "A valid employee email is required" }, { status: 400 });
+    const displayName = text(body, "displayName", 120) || email;
+    const now = new Date().toISOString(), db = getDb();
+    await db.batch([
+      db.insert(approvedUsers)
+        .values({ id: randomUUID(), organizationId: admin.organizationId, email, displayName, role: "employee", status: "approved", approvedBy: v.userId, approvedAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: [approvedUsers.organizationId, approvedUsers.email], set: { status: "approved", displayName, approvedBy: v.userId, approvedAt: now, updatedAt: now } }),
+      db.insert(auditEvents).values({ id: randomUUID(), organizationId: admin.organizationId, actorUserId: v.userId, action: "user.chatgpt_access_approved", targetType: "user", metadata: JSON.stringify({ email }), createdAt: now })
+    ]);
+    return Response.json({ approved: true }, { status: 201 });
+  });
+}

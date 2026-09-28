@@ -14,6 +14,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  migrate:
+    build: .
+    command: ["node", "dist/db/migrate.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://governbright:governbright@db:5432/governbright
+      APP_ORIGIN: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
   app:
     build: .
     environment:
@@ -28,5 +38,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 volumes:
   governbright_db:
