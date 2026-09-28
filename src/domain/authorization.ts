@@ -1,13 +1,13 @@
 import type { RequestActor, Role } from "./types.js";
 
 export type Action = "ai_system:read" | "ai_system:create" | "ai_system:approve" | "ai_system:update" | "ai_system:delete" | "audit:read" | "member:manage"
-  | "tool_request:create" | "tool_request:decide";
+  | "tool_request:create" | "tool_request:decide" | "ai_system:assess";
 
 const grants: Record<Role, ReadonlySet<Action>> = {
-  owner: new Set(["ai_system:read", "ai_system:create", "ai_system:approve", "ai_system:update", "ai_system:delete", "audit:read", "member:manage", "tool_request:create", "tool_request:decide"]),
-  admin: new Set(["ai_system:read", "ai_system:create", "ai_system:approve", "ai_system:update", "ai_system:delete", "audit:read", "member:manage", "tool_request:create", "tool_request:decide"]),
+  owner: new Set(["ai_system:read", "ai_system:create", "ai_system:approve", "ai_system:update", "ai_system:delete", "audit:read", "member:manage", "tool_request:create", "tool_request:decide", "ai_system:assess"]),
+  admin: new Set(["ai_system:read", "ai_system:create", "ai_system:approve", "ai_system:update", "ai_system:delete", "audit:read", "member:manage", "tool_request:create", "tool_request:decide", "ai_system:assess"]),
   contributor: new Set(["ai_system:read", "ai_system:create", "ai_system:update", "tool_request:create"]),
-  reviewer: new Set(["ai_system:read", "audit:read", "tool_request:create"]),
+  reviewer: new Set(["ai_system:read", "audit:read", "tool_request:create", "ai_system:assess"]),
   read_only: new Set(["ai_system:read", "tool_request:create"])
 };
 
