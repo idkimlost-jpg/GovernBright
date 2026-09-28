@@ -4,7 +4,7 @@ import type { Config } from "./config.js";
 
 const config: Config = {
   NODE_ENV: "test", PORT: 3000, DATABASE_URL: "postgres://example.test/governbright",
-  ALLOW_DEV_AUTH: false, SESSION_TTL_HOURS: 12, APP_ORIGIN: "http://localhost:3000"
+  ALLOW_DEV_AUTH: false, SESSION_TTL_HOURS: 12, APP_ORIGIN: "http://localhost:3000", MAIL_FROM: "test@example.test"
 };
 const user = {
   userId: "11111111-1111-4111-8111-111111111111", organizationId: "22222222-2222-4222-8222-222222222222",
@@ -15,7 +15,7 @@ const user = {
 describe("authenticated application", () => {
   it("serves the dashboard and establishes an HttpOnly session", async () => {
     const service = { list: vi.fn().mockResolvedValue([]), get: vi.fn(), create: vi.fn() };
-    const auth = { login: vi.fn().mockResolvedValue({ token: "opaque-token", actor: user }), resolve: vi.fn().mockResolvedValue(user), logout: vi.fn() };
+    const auth = { login: vi.fn().mockResolvedValue({ kind: "session", token: "opaque-token", actor: user }), resolve: vi.fn().mockResolvedValue(user), logout: vi.fn() };
     const app = await buildApp(config, { aiSystems: service, auth, toolRequests: {}, members: {} } as never);
     const page = await app.inject({ method: "GET", url: "/" });
     expect(page.statusCode).toBe(200);

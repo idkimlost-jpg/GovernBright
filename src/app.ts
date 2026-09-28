@@ -9,7 +9,7 @@ import type { Config } from "./config.js";
 import { registerRoutes, type Services } from "./http/routes.js";
 
 export async function buildApp(config: Config, services: Services) {
-  const app = Fastify({ logger: { redact: ["req.headers.authorization", "req.headers.cookie"] }, requestIdHeader: false, genReqId: () => randomUUID() });
+  const app = Fastify({ logger: config.NODE_ENV === "test" ? false : { redact: ["req.headers.authorization", "req.headers.cookie"] }, requestIdHeader: false, genReqId: () => randomUUID() });
   await app.register(helmet);
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
@@ -20,7 +20,8 @@ export async function buildApp(config: Config, services: Services) {
     if (error instanceof ZodError) return reply.code(400).send({ error: "Invalid request", issues: error.issues });
     const known = error instanceof Error ? error : new Error("Unknown request failure");
     const status = "statusCode" in known && typeof known.statusCode === "number" ? known.statusCode : 500;
-    return reply.code(status).send({ error: status >= 500 ? "Internal server error" : known.message, correlationId: request.id });
+    const code = status < 500 && "code" in known && typeof known.code === "string" ? known.code : undefined;
+    return reply.code(status).send({ error: status >= 500 ? "Internal server error" : known.message, code, correlationId: request.id });
   });
   return app;
 }
