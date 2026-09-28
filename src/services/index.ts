@@ -16,6 +16,7 @@ import { AssessmentService } from "./assessments.js";
 import { ReportService } from "./reports.js";
 import { CatalogService } from "./catalog.js";
 import { DiscoveryService } from "./discovery.js";
+import { ProvisioningService } from "./provisioning.js";
 import { OidcClient } from "../platform/oidc.js";
 import { Notifier } from "../platform/notifier.js";
 import { ToolRequestService } from "./tool-requests.js";
@@ -35,16 +36,18 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
   const auth = new AuthService(pool, config.SESSION_TTL_HOURS, secrets);
   const policies = new PolicyService(pool, notifier);
   const catalog = new CatalogService(pool);
+  const provisioning = new ProvisioningService(pool, secrets, config.NODE_ENV !== "production", platform.fetch);
   return {
     auth,
     aiSystems: new AiSystemService(pool),
-    toolRequests: new ToolRequestService(pool, policies, notifier),
+    toolRequests: new ToolRequestService(pool, policies, notifier, provisioning),
+    provisioning,
     policies,
     assessments: new AssessmentService(pool),
     reports: new ReportService(pool),
     catalog,
     discovery: new DiscoveryService(pool, catalog),
-    members: new MemberService(pool),
+    members: new MemberService(pool, provisioning),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),
     organization: new OrganizationService(pool, secrets, notifier),

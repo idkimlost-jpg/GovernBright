@@ -6,6 +6,7 @@ import { roles, type Member, type RequestActor } from "../domain/types.js";
 import { withTransaction } from "../db/transaction.js";
 import { recordAudit } from "./audit.js";
 import { hashPassword } from "./auth.js";
+import type { ProvisioningService } from "./provisioning.js";
 
 export const memberInput = z.object({
   email: z.email().max(320).transform(v => v.toLowerCase()),
@@ -25,7 +26,7 @@ export type MemberUpdate = z.infer<typeof memberUpdate>;
 const selectFields = `u.id AS "userId", u.email, u.display_name AS "displayName", m.role, m.active, m.created_at AS "joinedAt"`;
 
 export class MemberService {
-  constructor(private readonly pool: pg.Pool) {}
+  constructor(private readonly pool: pg.Pool, private readonly provisioning?: ProvisioningService) {}
 
   async list(actor: RequestActor): Promise<Member[]> {
     requirePermission(actor, "member:manage");
@@ -63,7 +64,7 @@ export class MemberService {
   async update(actor: RequestActor, userId: string, input: MemberUpdate): Promise<Member> {
     requirePermission(actor, "member:manage");
     if (userId === actor.userId) throw Object.assign(new Error("You cannot change your own membership"), { statusCode: 400 });
-    return withTransaction(this.pool, async client => {
+    const updated = await withTransaction(this.pool, async client => {
       const current = await client.query<{ role: string }>(`SELECT role FROM memberships
         WHERE organization_id = $1 AND user_id = $2 FOR UPDATE`, [actor.organizationId, userId]);
       if (!current.rows[0]) throw new NotFoundError("Member not found");
@@ -76,6 +77,11 @@ export class MemberService {
       await recordAudit(client, actor, "member.updated", "user", userId, { previousRole: current.rows[0].role, ...input });
       return this.fetch(client, actor.organizationId, userId);
     });
+    // Deactivation also disables the member's seats in provisioned AI tools.
+    if (input.active === false && this.provisioning) {
+      void this.provisioning.revokeAll(actor.organizationId, userId).catch(error => console.warn("Deprovisioning failed", error));
+    }
+    return updated;
   }
 
   private async fetch(client: pg.PoolClient, organizationId: string, userId: string): Promise<Member> {

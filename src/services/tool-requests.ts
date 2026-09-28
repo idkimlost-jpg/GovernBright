@@ -7,6 +7,7 @@ import { withTransaction } from "../db/transaction.js";
 import { recordAudit } from "./audit.js";
 import type { PolicyService } from "./policies.js";
 import { announce, type Notifier } from "../platform/notifier.js";
+import type { ProvisioningService } from "./provisioning.js";
 
 export const toolRequestInput = z.object({
   toolName: z.string().trim().min(1).max(120),
@@ -34,7 +35,7 @@ const selectFields = `r.id, r.organization_id AS "organizationId", r.requester_u
 const fromRequests = `FROM tool_requests r JOIN users u ON u.id = r.requester_user_id`;
 
 export class ToolRequestService {
-  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService, private readonly notifier?: Notifier) {}
+  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService, private readonly notifier?: Notifier, private readonly provisioning?: ProvisioningService) {}
 
   // Deciders see every request in their organization; everyone else sees only their own.
   async list(actor: RequestActor): Promise<ToolRequest[]> {
@@ -89,6 +90,10 @@ export class ToolRequestService {
       lines: [`${decided.requesterName}'s request for ${decided.toolName} was ${decided.status}.`, ...(decided.decisionNotes ? [`Notes: ${decided.decisionNotes}`] : [])],
       link: "/#requests"
     });
+    // An approval grants the seat in the tool when it is connected for provisioning.
+    if (decided.status === "approved" && this.provisioning) {
+      void this.provisioning.grant(actor.organizationId, decided.toolKey, decided.requesterUserId).catch(error => console.warn("Provisioning failed", error));
+    }
     return decided;
   }
 }

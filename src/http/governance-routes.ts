@@ -4,6 +4,7 @@ import { policyInput } from "../services/policies.js";
 import { assessmentInput } from "../services/assessments.js";
 import { auditQuery, renderEvidenceHtml } from "../services/reports.js";
 import { discoveryImport } from "../services/discovery.js";
+import { provisioningConnectionInput, toolKey } from "../services/provisioning.js";
 import { z } from "zod";
 import { resolveActor } from "./auth.js";
 import type { Services } from "./context.js";
@@ -46,6 +47,25 @@ export async function registerGovernanceRoutes(app: FastifyInstance, config: Con
     requireSameOrigin(request, config);
     await services.discovery.setIgnored(await actor(request), toolKeyParams.parse(request.params).key, z.object({ ignored: z.boolean().default(true) }).parse(request.body ?? {}).ignored);
     return reply.code(204).send();
+  });
+
+  app.get("/api/v1/provisioning", async request => {
+    const current = await actor(request);
+    return { connections: await services.provisioning.connections(current), accounts: await services.provisioning.accounts(current) };
+  });
+  app.put("/api/v1/provisioning/:key", async (request, reply) => {
+    requireSameOrigin(request, config);
+    await services.provisioning.saveConnection(await actor(request), toolKey.parse((request.params as { key: string }).key), provisioningConnectionInput.parse(request.body));
+    return reply.code(204).send();
+  });
+  app.delete("/api/v1/provisioning/:key", async (request, reply) => {
+    requireSameOrigin(request, config);
+    await services.provisioning.deleteConnection(await actor(request), toolKey.parse((request.params as { key: string }).key));
+    return reply.code(204).send();
+  });
+  app.post("/api/v1/provisioning/sync", async request => {
+    requireSameOrigin(request, config);
+    return services.provisioning.sync(await actor(request));
   });
 
   app.get("/api/v1/policy", async request => policies.current(await actor(request)));

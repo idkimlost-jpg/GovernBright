@@ -36,6 +36,8 @@ export function createHarness(): Harness {
   const mailer = new MemoryMailer(), secrets = new SecretBox(config.APP_ENCRYPTION_KEY);
   const outbound: Harness["outbound"] = [];
   const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
+    // Local test servers (SCIM, identity providers) are reached for real.
+    if (String(url).startsWith("http://127.0.0.1:")) return fetch(url, init);
     outbound.push({ url: String(url), method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : undefined });
     return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
