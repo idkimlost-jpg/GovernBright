@@ -18,6 +18,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: AI tool catalog", () => {
   it("only accepts reviewed vendor facts with a source and review date", async () => {
     const base = { key: "test-tool-x", name: "Test Tool X", vendor: "Test Vendor", category: "Assistant", website: "https://example.test" };
     expect(() => catalogFacts.parse([{ ...base, trainsOnCustomerData: "no" }])).toThrow(/sourceUrl/);
+    expect(() => catalogFacts.parse([{ ...base, sourceUrl: "javascript:alert(1)", reviewedAt: "2026-09-01", trainsOnCustomerData: "no" }])).toThrow(/https/);
     const facts = catalogFacts.parse([{ ...base, trainsOnCustomerData: "no", sourceUrl: "https://example.test/privacy", reviewedAt: "2026-09-01", certifications: ["SOC 2 Type II"] }]);
     await h.services.catalog.import(facts);
     expect(await h.services.catalog.get("test-tool-x")).toMatchObject({ trainsOnCustomerData: "no", reviewedAt: "2026-09-01", certifications: ["SOC 2 Type II"] });

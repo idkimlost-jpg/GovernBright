@@ -8,8 +8,11 @@ import { ZodError } from "zod";
 import type { Config } from "./config.js";
 import { registerRoutes, type Services } from "./http/routes.js";
 
+// Trust the nearest `hops` proxies, like Express/proxy-addr hop counts.
+const trustHops = (hops: number) => (_address: string, hop: number) => hop < hops;
+
 export async function buildApp(config: Config, services: Services) {
-  const app = Fastify({ logger: config.NODE_ENV === "test" ? false : { redact: ["req.headers.authorization", "req.headers.cookie"] }, requestIdHeader: false, genReqId: () => randomUUID() });
+  const app = Fastify({ logger: config.NODE_ENV === "test" ? false : { redact: ["req.headers.authorization", "req.headers.cookie"] }, requestIdHeader: false, genReqId: () => randomUUID(), trustProxy: typeof config.TRUST_PROXY === "number" ? trustHops(config.TRUST_PROXY) : config.TRUST_PROXY });
   await app.register(helmet);
   await app.register(cookie);
   await app.register(rateLimit, { global: false });

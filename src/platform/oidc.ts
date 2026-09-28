@@ -1,4 +1,5 @@
 import { createHash, createPublicKey, randomBytes, verify, type JsonWebKey } from "node:crypto";
+import { assertPublicUrl } from "./network.js";
 
 export type OidcDiscovery = { issuer: string; authorization_endpoint: string; token_endpoint: string; jwks_uri: string };
 export type IdTokenClaims = { iss: string; sub: string; aud: string | string[]; exp: number; iat: number; nonce?: string; email?: string; email_verified?: boolean | string; name?: string };
@@ -10,7 +11,8 @@ export class OidcError extends Error {
 const FETCH_TIMEOUT_MS = 10_000;
 const CLOCK_SKEW_SECONDS = 120;
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+async function fetchJson<T>(url: string, init: RequestInit | undefined, allowLoopback: boolean): Promise<T> {
+  await assertPublicUrl(url, { allowLoopback }).catch(error => { throw Object.assign(new OidcError(error.message), { statusCode: 400 }); });
   const response = await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   const body = await response.json().catch(() => null) as T | null;
   if (!response.ok || !body) throw new OidcError(`Identity provider request failed (${response.status}) for ${new URL(url).host}`);
@@ -29,18 +31,19 @@ export class OidcClient {
   // allowLoopbackHttp lets tests run a local identity provider; production requires https.
   constructor(private readonly allowLoopbackHttp = false) {}
 
-  assertSecureUrl(url: string, what: string): void {
-    if (url.startsWith("https://") || (this.allowLoopbackHttp && isLoopback(url))) return;
-    throw Object.assign(new OidcError(`${what} must use https`), { statusCode: 400 });
-  }
 
   async discover(issuer: string): Promise<OidcDiscovery> {
-    this.assertSecureUrl(issuer, "Issuer");
     const cached = this.discovery.get(issuer);
     if (cached && Date.now() - cached.at < 60 * 60 * 1000) return cached.value;
-    const value = await fetchJson<OidcDiscovery>(`${issuer.replace(/\/$/, "")}/.well-known/openid-configuration`);
+    const value = await fetchJson<OidcDiscovery>(`${issuer.replace(/\/$/, "")}/.well-known/openid-configuration`, undefined, this.allowLoopbackHttp);
     if (value.issuer.replace(/\/$/, "") !== issuer.replace(/\/$/, "")) throw new OidcError("Identity provider issuer does not match its discovery document");
-    for (const key of ["authorization_endpoint", "token_endpoint", "jwks_uri"] as const) this.assertSecureUrl(value[key] ?? "", `Identity provider ${key}`);
+    for (const key of ["authorization_endpoint", "token_endpoint", "jwks_uri"] as const) {
+      if (!value[key]) throw new OidcError(`Identity provider discovery document has no ${key}`);
+    }
+    // The browser is sent to the authorization endpoint, so it must be https outside local tests.
+    if (!value.authorization_endpoint.startsWith("https://") && !(this.allowLoopbackHttp && isLoopback(value.authorization_endpoint))) {
+      throw Object.assign(new OidcError("Identity provider authorization_endpoint must use https"), { statusCode: 400 });
+    }
     this.discovery.set(issuer, { value, at: Date.now() });
     return value;
   }
@@ -57,7 +60,7 @@ export class OidcClient {
 
   async exchangeCode(discovery: OidcDiscovery, params: { clientId: string; clientSecret: string; redirectUri: string; code: string; codeVerifier: string }): Promise<string> {
     const body = new URLSearchParams({ grant_type: "authorization_code", code: params.code, redirect_uri: params.redirectUri, code_verifier: params.codeVerifier, client_id: params.clientId, client_secret: params.clientSecret });
-    const tokens = await fetchJson<{ id_token?: string }>(discovery.token_endpoint, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" }, body });
+    const tokens = await fetchJson<{ id_token?: string }>(discovery.token_endpoint, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" }, body }, this.allowLoopbackHttp);
     if (!tokens.id_token) throw new OidcError("Identity provider did not return an ID token");
     return tokens.id_token;
   }
@@ -91,7 +94,7 @@ export class OidcClient {
     const find = (keys: JsonWebKey[] | undefined) => keys?.find(k => (kid ? k.kid === kid : true) && k.use !== "enc");
     let key = find(this.jwks.get(discovery.jwks_uri));
     if (!key) {
-      const fetched = await fetchJson<{ keys: JsonWebKey[] }>(discovery.jwks_uri);
+      const fetched = await fetchJson<{ keys: JsonWebKey[] }>(discovery.jwks_uri, undefined, this.allowLoopbackHttp);
       this.jwks.set(discovery.jwks_uri, fetched.keys);
       key = find(fetched.keys);
     }

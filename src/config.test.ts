@@ -14,6 +14,13 @@ describe("configuration", () => {
     expect(() => loadConfig({ ...base, APP_ENCRYPTION_KEY: Buffer.alloc(16).toString("base64") })).toThrow(/32 bytes/);
   });
 
+  it("parses the proxy trust setting", () => {
+    expect(loadConfig(base).TRUST_PROXY).toBe(false);
+    expect(loadConfig({ ...base, TRUST_PROXY: "true" }).TRUST_PROXY).toBe(true);
+    expect(loadConfig({ ...base, TRUST_PROXY: "2" }).TRUST_PROXY).toBe(2);
+    expect(loadConfig({ ...base, TRUST_PROXY: "10.0.0.1,10.0.0.2" }).TRUST_PROXY).toBe("10.0.0.1,10.0.0.2");
+  });
+
   it("refuses development authentication in production", () => {
     expect(() => loadConfig({ ...base, ...production, ALLOW_DEV_AUTH: "true" })).toThrow(/ALLOW_DEV_AUTH/);
   });

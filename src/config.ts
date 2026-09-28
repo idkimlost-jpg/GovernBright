@@ -10,6 +10,9 @@ const schema = z.object({
   // 32 random bytes, base64 encoded (openssl rand -base64 32). Encrypts stored integration secrets.
   APP_ENCRYPTION_KEY: z.string().refine(v => Buffer.from(v, "base64").length === 32, "APP_ENCRYPTION_KEY must be 32 bytes, base64 encoded").optional(),
   SMTP_URL: z.string().url().optional(),
+  // Set when running behind a load balancer or reverse proxy so rate limits and logs see the real
+  // client address: "true" (trust all), a hop count like "1", or comma-separated proxy addresses.
+  TRUST_PROXY: z.string().optional().transform(v => v === undefined || v === "" || v === "false" ? false : v === "true" ? true : /^\d+$/.test(v) ? Number(v) : v),
   MAIL_FROM: z.string().min(3).default("GovernBright <no-reply@governbright.local>")
 }).superRefine((config, ctx) => {
   if (config.NODE_ENV !== "production") return;
