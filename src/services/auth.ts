@@ -53,15 +53,19 @@ export class AuthService {
   constructor(private readonly pool: pg.Pool, private readonly ttlHours: number, private readonly secrets?: SecretBox) {}
 
   async login(email: string, password: string, organizationId?: string): Promise<LoginResult> {
-    const result = await this.pool.query<{ userId: string; organizationId: string; passwordHash: string | null; mfaEnabled: boolean }>(
+    // ssoRequired: the email's domain is routed to an enforced SSO connection (owners keep a password fallback).
+    const result = await this.pool.query<{ userId: string; organizationId: string; passwordHash: string | null; mfaEnabled: boolean; ssoRequired: boolean }>(
       `SELECT u.id AS "userId", m.organization_id AS "organizationId", u.password_hash AS "passwordHash",
-        (u.totp_enabled_at IS NOT NULL) AS "mfaEnabled"
+        (u.totp_enabled_at IS NOT NULL) AS "mfaEnabled",
+        (m.role <> 'owner' AND EXISTS (SELECT 1 FROM sso_domains d JOIN sso_connections c ON c.organization_id = d.organization_id
+          WHERE d.domain = split_part(lower(u.email), '@', 2) AND c.enforce)) AS "ssoRequired"
       FROM users u JOIN memberships m ON m.user_id = u.id AND m.active = true
       WHERE lower(u.email) = lower($1) AND ($2::uuid IS NULL OR m.organization_id = $2)
       ORDER BY m.created_at ASC LIMIT 1`, [email, organizationId ?? null]);
     const row = result.rows[0];
     const valid = await verifyPassword(password, row?.passwordHash ?? await dummyHash);
     if (!row?.passwordHash || !valid) throw new AuthenticationError();
+    if (row.ssoRequired) throw Object.assign(new AuthenticationError("Your organization requires single sign-on. Use “Sign in with SSO”."), { statusCode: 403, code: "sso_required" });
 
     if (row.mfaEnabled) {
       const challenge = newToken();

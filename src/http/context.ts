@@ -4,6 +4,7 @@ import type { MemberService } from "../services/members.js";
 import type { MfaService } from "../services/mfa.js";
 import type { OrganizationService } from "../services/organization.js";
 import type { PasswordResetService } from "../services/password-reset.js";
+import type { SsoService } from "../services/sso.js";
 import type { ToolRequestService } from "../services/tool-requests.js";
 
 export type Services = {
@@ -14,4 +15,5 @@ export type Services = {
   mfa: MfaService;
   passwordReset: PasswordResetService;
   organization: OrganizationService;
+  sso: SsoService;
 };

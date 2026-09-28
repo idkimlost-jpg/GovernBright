@@ -10,6 +10,8 @@ import { MemberService } from "./members.js";
 import { MfaService } from "./mfa.js";
 import { OrganizationService } from "./organization.js";
 import { PasswordResetService } from "./password-reset.js";
+import { SsoService } from "./sso.js";
+import { OidcClient } from "../platform/oidc.js";
 import { ToolRequestService } from "./tool-requests.js";
 
 export type Platform = { secrets: SecretBox; mailer: Mailer };
@@ -31,6 +33,7 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
     members: new MemberService(pool),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),
-    organization: new OrganizationService(pool)
+    organization: new OrganizationService(pool),
+    sso: new SsoService(pool, secrets, auth, new OidcClient(config.NODE_ENV !== "production"), appOrigin(config))
   };
 }
