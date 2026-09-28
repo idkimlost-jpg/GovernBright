@@ -21,6 +21,8 @@ export const testConfig = (): Config => ({
 
 export type Harness = {
   pool: pg.Pool; config: Config; services: Services; mailer: MemoryMailer; secrets: SecretBox;
+  // Outbound HTTP calls made through the injected fetch (Slack, SCIM).
+  outbound: Array<{ url: string; method: string; body: unknown }>;
   organization(name: string): Promise<{ organizationId: string; owner: RequestActor; ownerEmail: string }>;
   addMember(owner: RequestActor, role: Role): Promise<{ email: string; actor: RequestActor }>;
   close(): Promise<void>;
@@ -32,9 +34,14 @@ export function createHarness(): Harness {
   const config = testConfig();
   const pool = createPool(databaseUrl!);
   const mailer = new MemoryMailer(), secrets = new SecretBox(config.APP_ENCRYPTION_KEY);
-  const services = createServices(config, pool, { mailer, secrets });
+  const outbound: Harness["outbound"] = [];
+  const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
+    outbound.push({ url: String(url), method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  const services = createServices(config, pool, { mailer, secrets, fetch: fakeFetch });
   return {
-    pool, config, services, mailer, secrets,
+    pool, config, services, mailer, secrets, outbound,
     async organization(name) {
       const organizationId = randomUUID(), userId = randomUUID(), email = `owner-${userId}@example.test`;
       await pool.query("INSERT INTO organizations (id, name) VALUES ($1,$2)", [organizationId, `${name} ${organizationId.slice(0, 8)}`]);

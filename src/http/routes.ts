@@ -60,6 +60,10 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
     requireSameOrigin(request, config);
     return services.organization.update(await actor(request), organizationSettingsInput.parse(request.body));
   });
+  app.post("/api/v1/organization/slack/test", async request => {
+    requireSameOrigin(request, config);
+    return services.organization.testSlack(await actor(request));
+  });
 
   app.get("/api/v1/members", async request => members.list(await actor(request)));
   app.post("/api/v1/members", async (request, reply) => {

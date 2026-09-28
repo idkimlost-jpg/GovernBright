@@ -6,6 +6,7 @@ import type { RequestActor, ToolRequest } from "../domain/types.js";
 import { withTransaction } from "../db/transaction.js";
 import { recordAudit } from "./audit.js";
 import type { PolicyService } from "./policies.js";
+import { announce, type Notifier } from "../platform/notifier.js";
 
 export const toolRequestInput = z.object({
   toolName: z.string().trim().min(1).max(120),
@@ -33,7 +34,7 @@ const selectFields = `r.id, r.organization_id AS "organizationId", r.requester_u
 const fromRequests = `FROM tool_requests r JOIN users u ON u.id = r.requester_user_id`;
 
 export class ToolRequestService {
-  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService) {}
+  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService, private readonly notifier?: Notifier) {}
 
   // Deciders see every request in their organization; everyone else sees only their own.
   async list(actor: RequestActor): Promise<ToolRequest[]> {
@@ -48,7 +49,7 @@ export class ToolRequestService {
     requirePermission(actor, "tool_request:create");
     const toolKey = toolKeyFor(input.toolName);
     if (!toolKey) throw Object.assign(new Error("Tool name must contain letters or numbers"), { statusCode: 400 });
-    return withTransaction(this.pool, async client => {
+    const created = await withTransaction(this.pool, async client => {
       await this.policies?.requireAccepted(client, actor);
       const inserted = await client.query<{ id: string }>(`INSERT INTO tool_requests
         (organization_id, requester_user_id, tool_key, tool_name, business_purpose, data_description)
@@ -59,11 +60,17 @@ export class ToolRequestService {
       const result = await client.query<ToolRequest>(`SELECT ${selectFields} ${fromRequests} WHERE r.id = $1`, [id]);
       return result.rows[0]!;
     });
+    announce(this.notifier, actor.organizationId, {
+      title: `New AI tool request: ${created.toolName}`,
+      lines: [`${created.requesterName} (${created.requesterEmail}) wants to use ${created.toolName}.`, `Purpose: ${created.businessPurpose}`],
+      link: "/#requests"
+    });
+    return created;
   }
 
   async decide(actor: RequestActor, id: string, input: ToolRequestDecision): Promise<ToolRequest> {
     requirePermission(actor, "tool_request:decide");
-    return withTransaction(this.pool, async client => {
+    const decided = await withTransaction(this.pool, async client => {
       const updated = await client.query(`UPDATE tool_requests
         SET status = $3, decided_by = $4, decision_notes = $5, decided_at = now()
         WHERE id = $1 AND organization_id = $2 AND status = 'pending' RETURNING id`,
@@ -77,5 +84,11 @@ export class ToolRequestService {
       const result = await client.query<ToolRequest>(`SELECT ${selectFields} ${fromRequests} WHERE r.id = $1`, [id]);
       return result.rows[0]!;
     });
+    announce(this.notifier, actor.organizationId, {
+      title: `AI tool request ${decided.status}: ${decided.toolName}`,
+      lines: [`${decided.requesterName}'s request for ${decided.toolName} was ${decided.status}.`, ...(decided.decisionNotes ? [`Notes: ${decided.decisionNotes}`] : [])],
+      link: "/#requests"
+    });
+    return decided;
   }
 }

@@ -5,6 +5,7 @@ import { ConflictError } from "../domain/errors.js";
 import type { RequestActor } from "../domain/types.js";
 import { withTransaction } from "../db/transaction.js";
 import { recordAudit } from "./audit.js";
+import { announce, type Notifier } from "../platform/notifier.js";
 
 export const policyInput = z.object({
   title: z.string().trim().min(2).max(200),
@@ -24,7 +25,7 @@ export class PolicyAcceptanceRequiredError extends ConflictError {
 }
 
 export class PolicyService {
-  constructor(private readonly pool: pg.Pool) {}
+  constructor(private readonly pool: pg.Pool, private readonly notifier?: Notifier) {}
 
   async current(actor: RequestActor): Promise<{ policy: Policy | null; acceptedAt: string | null }> {
     const policy = await this.currentPolicy(this.pool, actor.organizationId);
@@ -43,7 +44,7 @@ export class PolicyService {
   // Publishing a new version means everyone must accept again.
   async publish(actor: RequestActor, input: PolicyInput): Promise<Policy> {
     requirePermission(actor, "member:manage");
-    return withTransaction(this.pool, async client => {
+    const policy = await withTransaction(this.pool, async client => {
       await client.query(`SELECT pg_advisory_xact_lock(hashtext('ai_policies:' || $1))`, [actor.organizationId]);
       const inserted = await client.query<{ id: string; version: number }>(`INSERT INTO ai_policies (organization_id, version, title, body, published_by)
         SELECT $1, COALESCE(MAX(version), 0) + 1, $2, $3, $4 FROM ai_policies WHERE organization_id = $1 RETURNING id, version`,
@@ -51,6 +52,8 @@ export class PolicyService {
       await recordAudit(client, actor, "policy.published", "policy", inserted.rows[0]!.id, { version: inserted.rows[0]!.version, title: input.title });
       return (await this.currentPolicy(client, actor.organizationId))!;
     });
+    announce(this.notifier, actor.organizationId, { title: `AI use policy updated: ${policy.title} (v${policy.version})`, lines: ["Everyone needs to review and accept the new version before requesting AI tools."], link: "/#policy" });
+    return policy;
   }
 
   async accept(actor: RequestActor, policyId: string): Promise<{ acceptedAt: string }> {

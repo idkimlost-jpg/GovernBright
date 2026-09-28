@@ -15,9 +15,10 @@ import { PolicyService } from "./policies.js";
 import { AssessmentService } from "./assessments.js";
 import { ReportService } from "./reports.js";
 import { OidcClient } from "../platform/oidc.js";
+import { Notifier } from "../platform/notifier.js";
 import { ToolRequestService } from "./tool-requests.js";
 
-export type Platform = { secrets: SecretBox; mailer: Mailer };
+export type Platform = { secrets: SecretBox; mailer: Mailer; fetch?: typeof fetch };
 
 export function createPlatform(config: Config): Platform {
   return {
@@ -28,19 +29,20 @@ export function createPlatform(config: Config): Platform {
 
 export function createServices(config: Config, pool: pg.Pool, platform: Platform = createPlatform(config)): Services {
   const { secrets, mailer } = platform;
+  const notifier = new Notifier(pool, secrets, appOrigin(config), platform.fetch);
   const auth = new AuthService(pool, config.SESSION_TTL_HOURS, secrets);
-  const policies = new PolicyService(pool);
+  const policies = new PolicyService(pool, notifier);
   return {
     auth,
     aiSystems: new AiSystemService(pool),
-    toolRequests: new ToolRequestService(pool, policies),
+    toolRequests: new ToolRequestService(pool, policies, notifier),
     policies,
     assessments: new AssessmentService(pool),
     reports: new ReportService(pool),
     members: new MemberService(pool),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),
-    organization: new OrganizationService(pool),
+    organization: new OrganizationService(pool, secrets, notifier),
     sso: new SsoService(pool, secrets, auth, new OidcClient(config.NODE_ENV !== "production"), appOrigin(config))
   };
 }
