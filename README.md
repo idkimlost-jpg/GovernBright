@@ -1,6 +1,6 @@
 # GovernBright
 
-GovernBright is a multi-tenant AI governance application. This first build establishes the security-sensitive foundation and the AI-system register described in the implementation plan.
+ GovernBright AI — A secure platform for managing AI risk, compliance, policies, and employee AI usage. GovernBright is a multi-tenant AI governance application. This first build establishes the security-sensitive foundation and the AI-system register described in the implementation plan.
 
 [![GovernBright CI](https://github.com/idkimlost-jpg/GovernBright/actions/workflows/ci.yml/badge.svg)](https://github.com/idkimlost-jpg/GovernBright/actions/workflows/ci.yml)
 
