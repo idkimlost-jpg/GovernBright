@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GovernBright</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="brand-panel">
+      <div class="brand"><span class="mark">G</span><span>GovernBright</span></div>
+      <div class="brand-copy">
+        <p class="eyebrow">Responsible AI, made operational</p>
+        <h1>Know every AI system. Govern every decision.</h1>
+        <p>One clear place to register AI tools, assign ownership, review risk, and build an evidence trail.</p>
+      </div>
+      <p class="security-note">Protected by organization-scoped access and append-only audit records.</p>
+    </aside>
+
+    <main>
+      <section id="login-view" class="login-card">
+        <p class="eyebrow">Secure workspace</p>
+        <h2>Welcome back</h2>
+        <p class="muted">Sign in to your organization’s governance workspace.</p>
+        <form id="login-form">
+          <label>Email<input name="email" type="email" autocomplete="username" required></label>
+          <label>Password<input name="password" type="password" minlength="12" autocomplete="current-password" required></label>
+          <button type="submit">Sign in</button>
+          <p id="login-error" class="error" role="alert"></p>
+        </form>
+      </section>
+
+      <section id="dashboard-view" class="dashboard hidden">
+        <header class="topbar">
+          <div><p class="eyebrow">AI governance workspace</p><h2 id="organization-name">Dashboard</h2></div>
+          <div class="user-menu"><span id="user-name"></span><button id="logout" class="secondary">Sign out</button></div>
+        </header>
+
+        <div class="metrics">
+          <article><span>Total systems</span><strong id="metric-total">0</strong></article>
+          <article><span>High risk</span><strong id="metric-high">0</strong></article>
+          <article><span>Under review</span><strong id="metric-review">0</strong></article>
+          <article><span>Approved</span><strong id="metric-approved">0</strong></article>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel register-panel">
+            <div class="panel-heading"><div><p class="eyebrow">Inventory</p><h3>AI system register</h3></div><button id="open-create">+ Register system</button></div>
+            <div class="table-wrap"><table><thead><tr><th>System</th><th>Vendor</th><th>Owner</th><th>Risk</th><th>Status</th><th>Next review</th></tr></thead><tbody id="systems-body"></tbody></table></div>
+            <div id="empty-state" class="empty hidden"><h4>No AI systems registered</h4><p>Add the first system to start your governance inventory.</p></div>
+          </section>
+
+          <aside id="create-panel" class="panel create-panel hidden">
+            <div class="panel-heading"><div><p class="eyebrow">New record</p><h3>Register AI system</h3></div><button id="close-create" class="icon" aria-label="Close">×</button></div>
+            <form id="create-form">
+              <label>System name<input name="name" minlength="2" maxlength="200" required></label>
+              <label>Purpose<textarea name="purpose" minlength="2" maxlength="5000" required></textarea></label>
+              <div class="form-row"><label>Vendor<input name="vendor" required></label><label>Business owner<input name="ownerName" required></label></div>
+              <div class="form-row"><label>Risk tier<select name="riskTier"><option value="low">Low</option><option value="moderate" selected>Moderate</option><option value="high">High</option><option value="prohibited">Prohibited</option></select></label><label>Status<select name="status"><option value="draft">Draft</option><option value="under_review">Under review</option><option value="approved">Approved</option></select></label></div>
+              <label>Next review date<input name="nextReviewAt" type="date"></label>
+              <button type="submit">Save system</button><p id="create-error" class="error" role="alert"></p>
+            </form>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

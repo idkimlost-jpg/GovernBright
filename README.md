@@ -2,6 +2,8 @@
 
 GovernBright is a multi-tenant AI governance application. This first build establishes the security-sensitive foundation and the AI-system register described in the implementation plan.
 
+[![GovernBright CI](https://github.com/idkimlost-jpg/GovernBright/actions/workflows/ci.yml/badge.svg)](https://github.com/idkimlost-jpg/GovernBright/actions/workflows/ci.yml)
+
 ## Included in v0.2
 
 - PostgreSQL schema for organizations, users, memberships, AI systems, and append-only audit events

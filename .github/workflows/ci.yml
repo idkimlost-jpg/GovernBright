@@ -1,0 +1,64 @@
+name: GovernBright CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: governbright_test
+          POSTGRES_USER: governbright
+          POSTGRES_PASSWORD: governbright_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U governbright -d governbright_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgres://governbright:governbright_test@localhost:5432/governbright_test
+      APP_ORIGIN: http://localhost:3000
+      ALLOW_DEV_AUTH: "false"
+      SESSION_TTL_HOURS: 12
+      ADMIN_EMAIL: ci-owner@example.test
+      ADMIN_PASSWORD: GovernBright-CI-Password-2026
+      ADMIN_NAME: CI Owner
+      ORGANIZATION_NAME: GovernBright CI
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Apply database migrations
+        run: npm run db:migrate
+      - name: Verify owner bootstrap
+        run: npm run admin:create
+      - name: Type-check
+        run: npm run typecheck
+      - name: Run tests
+        run: npm test
+      - name: Build production output
+        run: npm run build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

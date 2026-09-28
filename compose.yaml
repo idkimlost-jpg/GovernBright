@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: governbright
+      POSTGRES_USER: governbright
+      POSTGRES_PASSWORD: governbright
+    ports:
+      - "5432:5432"
+    volumes:
+      - governbright_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U governbright"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://governbright:governbright@db:5432/governbright
+      ALLOW_DEV_AUTH: "false"
+      APP_ORIGIN: http://localhost:3000
+      SESSION_TTL_HOURS: 12
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  governbright_db:
