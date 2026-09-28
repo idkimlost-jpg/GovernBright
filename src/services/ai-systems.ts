@@ -2,6 +2,7 @@ import type pg from "pg";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requirePermission } from "../domain/authorization.js";
+import { ConflictError } from "../domain/errors.js";
 import type { AiSystem, RequestActor } from "../domain/types.js";
 
 export const aiSystemInput = z.object({
@@ -18,10 +19,6 @@ export type AiSystemInput = z.infer<typeof aiSystemInput>;
 const selectFields = `id, organization_id AS "organizationId", name, purpose, vendor,
  owner_name AS "ownerName", risk_tier AS "riskTier", status,
  next_review_at::text AS "nextReviewAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
-
-export class ConflictError extends Error {
-  readonly statusCode = 409;
-}
 
 export class AiSystemService {
   constructor(private readonly pool: pg.Pool) {}

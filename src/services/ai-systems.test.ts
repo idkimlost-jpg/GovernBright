@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { AiSystemService, ConflictError, aiSystemInput } from "./ai-systems.js";
+import { AiSystemService, aiSystemInput } from "./ai-systems.js";
+import { ConflictError } from "../domain/errors.js";
 import { ForbiddenError } from "../domain/authorization.js";
 import type { RequestActor } from "../domain/types.js";
 

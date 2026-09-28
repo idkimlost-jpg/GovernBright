@@ -63,6 +63,27 @@
             </form>
           </aside>
         </div>
+
+        <section class="panel stacked-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Governed access</p><h3>AI tool requests</h3></div></div>
+          <form id="request-form" class="inline-form">
+            <div class="form-row"><label>AI tool<input name="toolName" maxlength="120" required placeholder="e.g. ChatGPT Enterprise"></label><label>Data involved<input name="dataDescription" maxlength="2000" placeholder="Types of information you will enter"></label></div>
+            <label>Business purpose<textarea name="businessPurpose" maxlength="2000" required placeholder="Describe the work this tool will support."></textarea></label>
+            <button type="submit">Send request</button><p id="request-error" class="error" role="alert"></p>
+          </form>
+          <div class="table-wrap"><table><thead><tr><th>Tool</th><th class="decider-only">Requester</th><th>Purpose</th><th>Status</th><th>Requested</th><th class="decider-only">Decision</th></tr></thead><tbody id="requests-body"></tbody></table></div>
+          <div id="requests-empty" class="empty hidden"><h4>No tool requests yet</h4><p>Requests you send appear here with their approval status.</p></div>
+        </section>
+
+        <section id="members-panel" class="panel stacked-panel hidden">
+          <div class="panel-heading"><div><p class="eyebrow">Organization</p><h3>Team members</h3></div></div>
+          <form id="member-form" class="inline-form">
+            <div class="form-row"><label>Email<input name="email" type="email" maxlength="320" required></label><label>Name<input name="displayName" minlength="2" maxlength="200" required></label></div>
+            <div class="form-row"><label>Role<select name="role"><option value="read_only">Read only</option><option value="reviewer">Reviewer</option><option value="contributor" selected>Contributor</option><option value="admin">Admin</option><option value="owner" class="owner-only">Owner</option></select></label><label>Initial password<input name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></label></div>
+            <button type="submit">Add member</button><p id="member-error" class="error" role="alert"></p>
+          </form>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody id="members-body"></tbody></table></div>
+        </section>
       </section>
     </main>
   </div>

@@ -22,3 +22,31 @@ export type AiSystem = {
   updatedAt: string;
 };
 
+
+export type ToolRequestStatus = "pending" | "approved" | "rejected";
+
+export type ToolRequest = {
+  id: string;
+  organizationId: string;
+  requesterUserId: string;
+  requesterEmail: string;
+  requesterName: string;
+  toolKey: string;
+  toolName: string;
+  businessPurpose: string;
+  dataDescription: string;
+  status: ToolRequestStatus;
+  decidedBy: string | null;
+  decisionNotes: string;
+  requestedAt: string;
+  decidedAt: string | null;
+};
+
+export type Member = {
+  userId: string;
+  email: string;
+  displayName: string;
+  role: Role;
+  active: boolean;
+  joinedAt: string;
+};

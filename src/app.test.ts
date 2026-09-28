@@ -16,7 +16,7 @@ describe("authenticated application", () => {
   it("serves the dashboard and establishes an HttpOnly session", async () => {
     const service = { list: vi.fn().mockResolvedValue([]), get: vi.fn(), create: vi.fn() };
     const auth = { login: vi.fn().mockResolvedValue({ token: "opaque-token", actor: user }), resolve: vi.fn().mockResolvedValue(user), logout: vi.fn() };
-    const app = await buildApp(config, service as never, auth as never);
+    const app = await buildApp(config, { aiSystems: service, auth, toolRequests: {}, members: {} } as never);
     const page = await app.inject({ method: "GET", url: "/" });
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain("AI system register");
@@ -28,7 +28,7 @@ describe("authenticated application", () => {
   });
 
   it("blocks a state-changing request from the wrong origin", async () => {
-    const app = await buildApp(config, {} as never, {} as never);
+    const app = await buildApp(config, { aiSystems: {}, auth: {}, toolRequests: {}, members: {} } as never);
     const response = await app.inject({ method: "POST", url: "/api/v1/auth/login", headers: { origin: "https://evil.example" }, payload: { email: user.email, password: "a-secure-password" } });
     expect(response.statusCode).toBe(403);
     await app.close();

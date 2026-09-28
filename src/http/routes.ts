@@ -7,6 +7,12 @@ import type { AiSystemService } from "../services/ai-systems.js";
 import { aiSystemInput } from "../services/ai-systems.js";
 import { resolveActor } from "./auth.js";
 import type { AuthService } from "../services/auth.js";
+import type { MemberService } from "../services/members.js";
+import { memberInput, memberUpdate } from "../services/members.js";
+import type { ToolRequestService } from "../services/tool-requests.js";
+import { toolRequestDecision, toolRequestInput } from "../services/tool-requests.js";
+
+export type Services = { aiSystems: AiSystemService; auth: AuthService; toolRequests: ToolRequestService; members: MemberService };
 
 const loginInput = z.object({ email: z.email().max(320), password: z.string().min(12).max(256), organizationId: z.uuid().optional() });
 const assets = {
@@ -22,7 +28,11 @@ function requireSameOrigin(request: FastifyRequest, config: Config): void {
   throw error;
 }
 
-export async function registerRoutes(app: FastifyInstance, config: Config, service: AiSystemService, auth: AuthService): Promise<void> {
+const idParams = z.object({ id: z.uuid() });
+
+export async function registerRoutes(app: FastifyInstance, config: Config, services: Services): Promise<void> {
+  const { aiSystems: service, auth, toolRequests, members } = services;
+  const actor = (request: FastifyRequest) => resolveActor(request, config, auth);
   app.get("/health", async () => ({ status: "ok" }));
   app.get("/", async (_request, reply) => reply.type("text/html; charset=utf-8").send(await readFile(assets.html)));
   app.get("/app.js", async (_request, reply) => reply.type("application/javascript; charset=utf-8").send(await readFile(assets.js)));
@@ -51,5 +61,29 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
     requireSameOrigin(request, config);
     const item = await service.create(await resolveActor(request, config, auth), aiSystemInput.parse(request.body));
     return reply.code(201).send(item);
+  });
+
+  app.get("/api/v1/tool-requests", async request => toolRequests.list(await actor(request)));
+  app.post("/api/v1/tool-requests", async (request, reply) => {
+    requireSameOrigin(request, config);
+    const item = await toolRequests.create(await actor(request), toolRequestInput.parse(request.body));
+    return reply.code(201).send(item);
+  });
+  app.patch("/api/v1/tool-requests/:id", async request => {
+    requireSameOrigin(request, config);
+    const { id } = idParams.parse(request.params);
+    return toolRequests.decide(await actor(request), id, toolRequestDecision.parse(request.body));
+  });
+
+  app.get("/api/v1/members", async request => members.list(await actor(request)));
+  app.post("/api/v1/members", async (request, reply) => {
+    requireSameOrigin(request, config);
+    const item = await members.add(await actor(request), memberInput.parse(request.body));
+    return reply.code(201).send(item);
+  });
+  app.patch("/api/v1/members/:id", async request => {
+    requireSameOrigin(request, config);
+    const { id } = idParams.parse(request.params);
+    return members.update(await actor(request), id, memberUpdate.parse(request.body));
   });
 }
