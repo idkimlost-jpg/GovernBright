@@ -19,6 +19,26 @@
 - Login rate limiting to reduce automated credential attacks
 - Responsive administrator dashboard and AI-system registration workflow
 
+## Added in v0.3
+
+- **Sign-in:** password reset by email, two-factor authentication (authenticator apps, recovery codes, optional org-wide requirement), and company single sign-on over OpenID Connect (Google Workspace, Microsoft Entra ID, Okta) with optional auto-provisioning and enforcement
+- **AI tool requests:** employees request tools, owners and admins approve or reject; requests require acceptance of the current AI use policy
+- **AI use policy:** versioned policies, per-person sign-off and acceptance tracking
+- **Risk assessments:** a scored questionnaire whose required controls cite the EU AI Act, NIST AI RMF, GDPR and ISO/IEC 42001 clauses they support (an indicative mapping, not legal advice)
+- **Evidence:** audit log CSV export and a printable AI governance evidence report
+- **Shadow AI discovery:** import sign-in grant or expense CSVs to find AI tools already in use and add them to the register
+- **AI tool catalog:** shared list of common AI tools; vendor data-practice facts are loaded by the operator with `npm run catalog:import -- facts.json` and must cite a source and review date
+- **Slack and reminders:** request, decision and policy notifications, plus a daily digest of due reviews and waiting requests (`npm run reminders`; `node dist/scripts/send-reminders.js` in the container, scheduled once a day)
+- **Seat provisioning:** approving a request creates the person's account in the tool over SCIM 2.0; deactivating a member disables it
+
+### Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `APP_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts MFA seeds, SSO client secrets, Slack webhooks and SCIM tokens. Required in production; keep it stable, since changing it makes stored secrets unreadable. |
+| `SMTP_URL`, `MAIL_FROM` | Outgoing mail for password resets and reminders. Without SMTP, mail is printed to the log in development and dropped in production. |
+| `APP_ORIGIN` | Public URL; used for links in emails and Slack, and the SSO redirect URI (`<APP_ORIGIN>/api/v1/auth/sso/callback`). |
+
 ## Important security state
 
 The application now has database-backed authentication and membership resolution. Before internet deployment, configure HTTPS, a production database, `APP_ORIGIN`, managed secrets, backups, monitoring, and rate limiting. Real customer data remains blocked until the operational Phase 0 gates are verified.

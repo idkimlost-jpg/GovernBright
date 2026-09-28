@@ -28,6 +28,12 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
   app.get("/", async (_request, reply) => reply.type("text/html; charset=utf-8").send(await readFile(assets.html)));
   app.get("/app.js", async (_request, reply) => reply.type("application/javascript; charset=utf-8").send(await readFile(assets.js)));
   app.get("/styles.css", async (_request, reply) => reply.type("text/css; charset=utf-8").send(await readFile(assets.css)));
+  // Front-end modules; the name pattern keeps requests inside public/js.
+  app.get("/js/:name", async (request, reply) => {
+    const { name } = z.object({ name: z.string().regex(/^[a-z-]+\.js$/) }).parse(request.params);
+    const file = await readFile(fileURLToPath(new URL(`../../public/js/${name}`, import.meta.url))).catch(() => null);
+    return file ? reply.type("application/javascript; charset=utf-8").send(file) : reply.code(404).send({ error: "Not found" });
+  });
   await registerAuthRoutes(app, config, services);
   await registerSsoRoutes(app, config, services);
   await registerGovernanceRoutes(app, config, services);
