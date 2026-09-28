@@ -21,14 +21,36 @@
     <main>
       <section id="login-view" class="login-card">
         <p class="eyebrow">Secure workspace</p>
-        <h2>Welcome back</h2>
-        <p class="muted">Sign in to your organization’s governance workspace.</p>
-        <form id="login-form">
+        <h2 id="login-title">Welcome back</h2>
+        <p class="muted" id="login-subtitle">Sign in to your organization’s governance workspace.</p>
+        <p id="login-notice" class="notice hidden" role="status"></p>
+
+        <form id="login-form" data-step="password">
           <label>Email<input name="email" type="email" autocomplete="username" required></label>
           <label>Password<input name="password" type="password" minlength="12" autocomplete="current-password" required></label>
           <button type="submit">Sign in</button>
-          <p id="login-error" class="error" role="alert"></p>
+          <button type="button" id="sso-button" class="secondary">Sign in with SSO</button>
+          <button type="button" class="link" data-step-link="forgot">Forgot password?</button>
         </form>
+
+        <form id="mfa-form" data-step="mfa" class="hidden">
+          <label>Authentication code<input name="code" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="20" required placeholder="6-digit code or recovery code"></label>
+          <button type="submit">Verify</button>
+          <button type="button" class="link" data-step-link="password">Start over</button>
+        </form>
+
+        <form id="forgot-form" data-step="forgot" class="hidden">
+          <label>Email<input name="email" type="email" autocomplete="username" required></label>
+          <button type="submit">Email me a reset link</button>
+          <button type="button" class="link" data-step-link="password">Back to sign in</button>
+        </form>
+
+        <form id="reset-form" data-step="reset" class="hidden">
+          <label>New password<input name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></label>
+          <label>Confirm new password<input name="confirm" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></label>
+          <button type="submit">Set new password</button>
+        </form>
+        <p id="login-error" class="error" role="alert"></p>
       </section>
 
       <section id="dashboard-view" class="dashboard hidden">
@@ -36,36 +58,194 @@
           <div><p class="eyebrow">AI governance workspace</p><h2 id="organization-name">Dashboard</h2></div>
           <div class="user-menu"><span id="user-name"></span><button id="logout" class="secondary">Sign out</button></div>
         </header>
+        <p id="mfa-required-banner" class="notice warning hidden" role="status">Your organization requires two-factor authentication. Set it up below to continue.</p>
 
-        <div class="metrics">
-          <article><span>Total systems</span><strong id="metric-total">0</strong></article>
-          <article><span>High risk</span><strong id="metric-high">0</strong></article>
-          <article><span>Under review</span><strong id="metric-review">0</strong></article>
-          <article><span>Approved</span><strong id="metric-approved">0</strong></article>
-        </div>
+        <nav class="tabs" id="tabs" aria-label="Sections">
+          <button data-tab="overview">Overview</button>
+          <button data-tab="requests">Requests</button>
+          <button data-tab="policy">Policy</button>
+          <button data-tab="discovery" data-requires="discovery">Discovery</button>
+          <button data-tab="reports" data-requires="audit">Reports</button>
+          <button data-tab="team" data-requires="manage">Team</button>
+          <button data-tab="settings">Settings</button>
+        </nav>
 
-        <div class="content-grid">
-          <section class="panel register-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Inventory</p><h3>AI system register</h3></div><button id="open-create">+ Register system</button></div>
-            <div class="table-wrap"><table><thead><tr><th>System</th><th>Vendor</th><th>Owner</th><th>Risk</th><th>Status</th><th>Next review</th></tr></thead><tbody id="systems-body"></tbody></table></div>
-            <div id="empty-state" class="empty hidden"><h4>No AI systems registered</h4><p>Add the first system to start your governance inventory.</p></div>
+        <!-- Overview -->
+        <section data-panel="overview">
+          <div class="metrics">
+            <article><span>Total systems</span><strong id="metric-total">0</strong></article>
+            <article><span>High risk</span><strong id="metric-high">0</strong></article>
+            <article><span>Under review</span><strong id="metric-review">0</strong></article>
+            <article><span>Approved</span><strong id="metric-approved">0</strong></article>
+          </div>
+          <div class="content-grid">
+            <section class="panel register-panel">
+              <div class="panel-heading"><div><p class="eyebrow">Inventory</p><h3>AI system register</h3></div><button id="open-create">+ Register system</button></div>
+              <div class="table-wrap" id="systems-table"><table><thead><tr><th>System</th><th>Vendor</th><th>Owner</th><th>Risk</th><th>Status</th><th>Next review</th><th></th></tr></thead><tbody id="systems-body"></tbody></table></div>
+              <div id="empty-state" class="empty hidden"><h4>No AI systems registered</h4><p>Add the first system to start your governance inventory.</p></div>
+            </section>
+            <aside id="create-panel" class="panel create-panel hidden">
+              <div class="panel-heading"><div><p class="eyebrow">New record</p><h3>Register AI system</h3></div><button id="close-create" class="icon" aria-label="Close">×</button></div>
+              <form id="create-form">
+                <label>System name<input name="name" minlength="2" maxlength="200" required></label>
+                <label>Purpose<textarea name="purpose" minlength="2" maxlength="5000" required></textarea></label>
+                <div class="form-row"><label>Vendor<input name="vendor" required></label><label>Business owner<input name="ownerName" required></label></div>
+                <div class="form-row"><label>Risk tier<select name="riskTier"><option value="low">Low</option><option value="moderate" selected>Moderate</option><option value="high">High</option><option value="prohibited">Prohibited</option></select></label><label>Status<select name="status"><option value="draft">Draft</option><option value="under_review">Under review</option><option id="status-approved" value="approved">Approved</option></select></label></div>
+                <label>Next review date<input name="nextReviewAt" type="date"></label>
+                <button type="submit">Save system</button><p id="create-error" class="error" role="alert"></p>
+              </form>
+            </aside>
+          </div>
+        </section>
+
+        <!-- Requests -->
+        <section data-panel="requests" class="hidden">
+          <p id="policy-banner" class="notice warning hidden">Accept your organization’s AI use policy on the Policy tab before requesting a tool.</p>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Governed access</p><h3>AI tool requests</h3></div></div>
+            <form id="request-form" class="inline-form">
+              <div class="form-row"><label>AI tool<input name="toolName" maxlength="120" required placeholder="e.g. ChatGPT Enterprise" list="catalog-options"></label><label>Data involved<input name="dataDescription" maxlength="2000" placeholder="Types of information you will enter"></label></div>
+              <datalist id="catalog-options"></datalist>
+              <div id="catalog-hint" class="catalog-hint hidden"></div>
+              <label>Business purpose<textarea name="businessPurpose" maxlength="2000" required placeholder="Describe the work this tool will support."></textarea></label>
+              <button type="submit">Send request</button><p id="request-error" class="error" role="alert"></p>
+            </form>
+            <div class="table-wrap"><table><thead><tr><th>Tool</th><th class="decider-only">Requester</th><th>Purpose</th><th>Status</th><th>Requested</th><th class="decider-only">Decision</th></tr></thead><tbody id="requests-body"></tbody></table></div>
+            <div id="requests-empty" class="empty hidden"><h4>No tool requests yet</h4><p>Requests you send appear here with their approval status.</p></div>
+          </section>
+        </section>
+
+        <!-- Policy -->
+        <section data-panel="policy" class="hidden">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">AI use policy</p><h3 id="policy-title">No policy published yet</h3></div><span id="policy-version" class="muted"></span></div>
+            <div id="policy-body" class="policy-body"></div>
+            <div id="policy-accept-row" class="hidden"><button id="policy-accept">I have read and accept this policy</button></div>
+            <p id="policy-accepted" class="notice hidden"></p>
+            <p id="policy-error" class="error" role="alert"></p>
+          </section>
+          <section class="panel stacked-panel manage-only">
+            <div class="panel-heading"><div><p class="eyebrow">Administration</p><h3>Publish a new version</h3></div></div>
+            <form id="policy-form">
+              <label>Title<input name="title" minlength="2" maxlength="200" required></label>
+              <label>Policy text<textarea name="body" minlength="10" maxlength="50000" rows="10" required placeholder="What employees may and may not do with AI tools…"></textarea></label>
+              <button type="submit">Publish (everyone must accept again)</button><p id="policy-form-error" class="error" role="alert"></p>
+            </form>
+            <h4 class="subhead">Acceptance of the current version</h4>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Accepted</th></tr></thead><tbody id="policy-status-body"></tbody></table></div>
+          </section>
+        </section>
+
+        <!-- Discovery -->
+        <section data-panel="discovery" class="hidden">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Shadow AI</p><h3>Find AI tools already in use</h3></div></div>
+            <p class="muted">Upload a CSV export of app sign-in grants (Google Workspace, Microsoft Entra, Okta) or card and expense transactions. GovernBright matches it against known AI vendors.</p>
+            <form id="discovery-form" class="inline-form">
+              <div class="form-row"><label>Source<select name="source"><option value="google_workspace">Google Workspace OAuth grants</option><option value="microsoft_entra">Microsoft Entra sign-ins</option><option value="okta">Okta app sign-ins</option><option value="expenses">Card / expense transactions</option><option value="other">Other CSV</option></select></label><label>CSV file<input name="file" type="file" accept=".csv,text/csv" required></label></div>
+              <button type="submit">Import</button><p id="discovery-result" class="muted"></p><p id="discovery-error" class="error" role="alert"></p>
+            </form>
+            <div class="table-wrap"><table><thead><tr><th>Tool</th><th>People</th><th>Events</th><th>Spend</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody id="discovery-body"></tbody></table></div>
+            <div id="discovery-empty" class="empty hidden"><h4>Nothing discovered yet</h4><p>Import an export to see which AI tools people already use.</p></div>
+          </section>
+        </section>
+
+        <!-- Reports -->
+        <section data-panel="reports" class="hidden">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Evidence</p><h3>Audit and compliance reports</h3></div></div>
+            <div class="report-actions">
+              <a class="button" href="/api/v1/reports/evidence.html" target="_blank" rel="noopener">Open evidence report</a>
+              <form id="audit-export" class="inline-actions"><label>From<input type="date" name="from"></label><label>To<input type="date" name="to"></label><button type="submit" class="secondary">Download audit log (CSV)</button></form>
+            </div>
+            <div class="metrics small" id="evidence-metrics"></div>
+            <h4 class="subhead">Recent activity</h4>
+            <div class="table-wrap"><table><thead><tr><th>Time</th><th>Who</th><th>Action</th><th>Result</th></tr></thead><tbody id="audit-body"></tbody></table></div>
+          </section>
+        </section>
+
+        <!-- Team -->
+        <section data-panel="team" class="hidden">
+          <section id="members-panel" class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Organization</p><h3>Team members</h3></div></div>
+            <form id="member-form" class="inline-form">
+              <div class="form-row"><label>Email<input name="email" type="email" maxlength="320" required></label><label>Name<input name="displayName" minlength="2" maxlength="200" required></label></div>
+              <div class="form-row"><label>Role<select name="role"><option value="read_only">Read only</option><option value="reviewer">Reviewer</option><option value="contributor" selected>Contributor</option><option value="admin">Admin</option><option value="owner" class="owner-only">Owner</option></select></label><label>Initial password<input name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></label></div>
+              <button type="submit">Add member</button><p id="member-error" class="error" role="alert"></p>
+            </form>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody id="members-body"></tbody></table></div>
+          </section>
+        </section>
+
+        <!-- Settings -->
+        <section data-panel="settings" class="hidden">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Your account</p><h3>Two-factor authentication</h3></div><span id="mfa-state"></span></div>
+            <div id="mfa-off"><p class="muted">Use an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, …) for a second sign-in step.</p><button id="mfa-start">Set up two-factor authentication</button></div>
+            <form id="mfa-enroll" class="hidden">
+              <p>Add this key to your authenticator app, then enter the 6-digit code it shows.</p>
+              <p class="secret-key"><code id="mfa-secret"></code></p>
+              <p class="muted small-text">Or open this setup link on your phone: <a id="mfa-uri" href="#">otpauth link</a></p>
+              <label>Code<input name="code" inputmode="numeric" minlength="6" maxlength="6" required autocomplete="one-time-code"></label>
+              <button type="submit">Turn on</button>
+            </form>
+            <div id="mfa-codes" class="hidden"><p><strong>Save these recovery codes.</strong> Each works once if you lose your device; they won't be shown again.</p><pre id="mfa-codes-list"></pre><button id="mfa-codes-done" class="secondary">I've saved them</button></div>
+            <form id="mfa-disable" class="hidden"><label>Password to turn off<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="secondary">Turn off two-factor</button></form>
+            <p id="mfa-error" class="error" role="alert"></p>
           </section>
 
-          <aside id="create-panel" class="panel create-panel hidden">
-            <div class="panel-heading"><div><p class="eyebrow">New record</p><h3>Register AI system</h3></div><button id="close-create" class="icon" aria-label="Close">×</button></div>
-            <form id="create-form">
-              <label>System name<input name="name" minlength="2" maxlength="200" required></label>
-              <label>Purpose<textarea name="purpose" minlength="2" maxlength="5000" required></textarea></label>
-              <div class="form-row"><label>Vendor<input name="vendor" required></label><label>Business owner<input name="ownerName" required></label></div>
-              <div class="form-row"><label>Risk tier<select name="riskTier"><option value="low">Low</option><option value="moderate" selected>Moderate</option><option value="high">High</option><option value="prohibited">Prohibited</option></select></label><label>Status<select name="status"><option value="draft">Draft</option><option value="under_review">Under review</option><option value="approved">Approved</option></select></label></div>
-              <label>Next review date<input name="nextReviewAt" type="date"></label>
-              <button type="submit">Save system</button><p id="create-error" class="error" role="alert"></p>
+          <section class="panel stacked-panel manage-only">
+            <div class="panel-heading"><div><p class="eyebrow">Organization</p><h3>Security policy</h3></div></div>
+            <label class="checkbox"><input type="checkbox" id="require-mfa"> Require two-factor authentication for everyone who signs in with a password</label>
+            <p id="org-error" class="error" role="alert"></p>
+          </section>
+
+          <section class="panel stacked-panel manage-only">
+            <div class="panel-heading"><div><p class="eyebrow">Single sign-on</p><h3>Company login (OpenID Connect)</h3></div><span id="sso-state"></span></div>
+            <p class="muted">Works with Google Workspace, Microsoft Entra ID, Okta and other OpenID Connect providers. Register this redirect URI with your provider: <code id="sso-redirect"></code></p>
+            <form id="sso-form">
+              <div class="form-row"><label>Issuer URL<input name="issuer" type="url" required placeholder="https://accounts.google.com"></label><label>Email domains<input name="domains" required placeholder="example.com, example.co.uk"></label></div>
+              <div class="form-row"><label>Client ID<input name="clientId" required></label><label>Client secret<input name="clientSecret" type="password" autocomplete="off" placeholder="Leave blank to keep the saved secret"></label></div>
+              <div class="form-row"><label>New SSO users<select name="autoProvisionRole"><option value="">Must be added by an admin first</option><option value="read_only">Join automatically as Read only</option><option value="contributor">Join automatically as Contributor</option><option value="reviewer">Join automatically as Reviewer</option></select></label><label class="checkbox"><input type="checkbox" name="enforce"> Require SSO for these domains (owners keep password access)</label></div>
+              <div class="inline-actions"><button type="submit">Save single sign-on</button><button type="button" id="sso-remove" class="secondary hidden">Remove</button></div>
+              <p id="sso-error" class="error" role="alert"></p>
             </form>
-          </aside>
-        </div>
+          </section>
+
+          <section class="panel stacked-panel manage-only">
+            <div class="panel-heading"><div><p class="eyebrow">Notifications</p><h3>Slack</h3></div><span id="slack-state"></span></div>
+            <p class="muted">Post new requests, decisions, policy updates and daily review reminders to a Slack channel using an incoming webhook.</p>
+            <form id="slack-form" class="inline-actions"><input name="url" type="url" placeholder="https://hooks.slack.com/services/…" required><button type="submit">Connect</button><button type="button" id="slack-test" class="secondary">Send test</button><button type="button" id="slack-remove" class="secondary">Disconnect</button></form>
+            <p id="slack-message" class="muted"></p><p id="slack-error" class="error" role="alert"></p>
+          </section>
+
+          <section class="panel stacked-panel manage-only">
+            <div class="panel-heading"><div><p class="eyebrow">Provisioning</p><h3>Automatic seats (SCIM)</h3></div><button id="provisioning-sync" class="secondary">Retry failed</button></div>
+            <p class="muted">When a request is approved, GovernBright creates the person's account in the tool; deactivating a member disables it. Use the SCIM URL and token from the tool's admin console.</p>
+            <form id="provisioning-form">
+              <div class="form-row"><label>Tool<select name="key" id="provisioning-tool"></select></label><label>SCIM base URL<input name="baseUrl" type="url" required placeholder="https://…/scim/v2"></label></div>
+              <label>Bearer token<input name="token" type="password" autocomplete="off" placeholder="Leave blank to keep the saved token"></label>
+              <button type="submit">Save connection</button><p id="provisioning-error" class="error" role="alert"></p>
+            </form>
+            <div class="table-wrap"><table><thead><tr><th>Tool</th><th>SCIM URL</th><th>Seats</th><th>Errors</th><th></th></tr></thead><tbody id="provisioning-connections"></tbody></table></div>
+            <h4 class="subhead">Seats</h4>
+            <div class="table-wrap"><table><thead><tr><th>Tool</th><th>Person</th><th>Status</th><th>Last sync</th></tr></thead><tbody id="provisioning-accounts"></tbody></table></div>
+          </section>
+        </section>
       </section>
     </main>
   </div>
-  <script src="/app.js" defer></script>
+
+  <dialog id="assess-dialog">
+    <form id="assess-form" method="dialog">
+      <div class="panel-heading"><div><p class="eyebrow">Risk assessment</p><h3 id="assess-title">Assess system</h3></div><button type="button" class="icon" id="assess-close" aria-label="Close">×</button></div>
+      <div id="assess-questions"></div>
+      <label>Reviewer notes<textarea name="reviewNotes" maxlength="2000"></textarea></label>
+      <button type="submit">Calculate risk and record decision</button><p id="assess-error" class="error" role="alert"></p>
+    </form>
+    <div id="assess-result" class="hidden"></div>
+  </dialog>
+
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

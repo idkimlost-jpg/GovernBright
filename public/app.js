@@ -1,52 +1,71 @@
-const $ = selector => document.querySelector(selector);
-const loginView = $("#login-view");
-const dashboardView = $("#dashboard-view");
-const contentGrid = $(".content-grid");
-const createPanel = $("#create-panel");
+import { $, $$, can, session, request, toggle } from "./js/core.js";
+import { initAuth, showStep } from "./js/auth.js";
+import { initOverview, loadOverview, applyOverviewRole } from "./js/overview.js";
+import { initRequests, loadRequests } from "./js/requests.js";
+import { initPolicy, loadPolicy } from "./js/policy.js";
+import { initDiscovery, loadDiscovery } from "./js/discovery.js";
+import { initReports, loadReports } from "./js/reports.js";
+import { initTeam, loadTeam } from "./js/team.js";
+import { initSettings, loadSettings } from "./js/settings.js";
 
-async function request(url, options = {}) {
-  const response = await fetch(url, { credentials: "same-origin", headers: { "content-type": "application/json", ...(options.headers || {}) }, ...options });
-  if (response.status === 204) return null;
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Request failed");
-  return data;
+const loaders = { overview: loadOverview, requests: loadRequests, policy: loadPolicy, discovery: loadDiscovery, reports: loadReports, team: loadTeam, settings: loadSettings };
+const tabAllowed = (tab, role) => {
+  const requirement = $(`[data-tab="${tab}"]`)?.dataset.requires;
+  return !requirement || can[requirement](role);
+};
+
+async function openTab(tab) {
+  const role = session.user.role;
+  if (session.user.mfaSetupRequired) tab = "settings";
+  if (!loaders[tab] || !tabAllowed(tab, role)) tab = "overview";
+  for (const button of $$("[data-tab]")) button.classList.toggle("active", button.dataset.tab === tab);
+  for (const panel of $$("[data-panel]")) toggle(panel, panel.dataset.panel === tab);
+  if (location.hash !== `#${tab}`) history.replaceState(null, "", `#${tab}`);
+  try { await loaders[tab](); }
+  catch (error) {
+    if (error.code === "mfa_setup_required") { session.user.mfaSetupRequired = true; return openTab("settings"); }
+    if (error.status === 401) return showLogin();
+    console.error(error);
+  }
 }
 
-function showLogin() { loginView.classList.remove("hidden"); dashboardView.classList.add("hidden"); }
-function showDashboard(user) {
-  loginView.classList.add("hidden"); dashboardView.classList.remove("hidden");
+function showLogin({ keepStep = false } = {}) {
+  session.user = null;
+  toggle($("#login-view"), true); toggle($("#dashboard-view"), false);
+  if (!keepStep) showStep("password");
+}
+
+async function showDashboard(user) {
+  session.user = user;
+  toggle($("#login-view"), false); toggle($("#dashboard-view"), true);
   $("#organization-name").textContent = user.organizationName;
   $("#user-name").textContent = `${user.displayName} · ${user.role.replace("_", " ")}`;
-}
-function badge(value) { const safe = String(value); return `<span class="badge ${safe}">${safe.replace("_", " ")}</span>`; }
-function escapeHtml(value) { const span = document.createElement("span"); span.textContent = value ?? ""; return span.innerHTML; }
-
-async function loadSystems() {
-  const systems = await request("/api/v1/ai-systems");
-  $("#metric-total").textContent = systems.length;
-  $("#metric-high").textContent = systems.filter(x => x.riskTier === "high" || x.riskTier === "prohibited").length;
-  $("#metric-review").textContent = systems.filter(x => x.status === "under_review").length;
-  $("#metric-approved").textContent = systems.filter(x => x.status === "approved").length;
-  $("#systems-body").innerHTML = systems.map(x => `<tr><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.vendor)}</td><td>${escapeHtml(x.ownerName)}</td><td>${badge(x.riskTier)}</td><td>${badge(x.status)}</td><td>${x.nextReviewAt ? escapeHtml(x.nextReviewAt) : "—"}</td></tr>`).join("");
-  $("#empty-state").classList.toggle("hidden", systems.length > 0);
-  $(".table-wrap").classList.toggle("hidden", systems.length === 0);
+  for (const button of $$("[data-tab]")) toggle(button, tabAllowed(button.dataset.tab, user.role) && (!user.mfaSetupRequired || button.dataset.tab === "settings"));
+  for (const element of $$(".manage-only")) toggle(element, can.manage(user.role) && !user.mfaSetupRequired);
+  for (const element of $$(".decider-only")) toggle(element, can.approve(user.role));
+  for (const option of $$(".owner-only")) { option.hidden = user.role !== "owner"; option.disabled = user.role !== "owner"; }
+  toggle($("#mfa-required-banner"), !!user.mfaSetupRequired);
+  applyOverviewRole(user.role);
+  await openTab(location.hash.slice(1) || "overview");
 }
 
-$("#login-form").addEventListener("submit", async event => {
-  event.preventDefault(); $("#login-error").textContent = "";
-  const form = new FormData(event.currentTarget);
-  try { const data = await request("/api/v1/auth/login", { method: "POST", body: JSON.stringify(Object.fromEntries(form)) }); showDashboard(data.user); await loadSystems(); }
-  catch (error) { $("#login-error").textContent = error.message; }
-});
-$("#logout").addEventListener("click", async () => { await request("/api/v1/auth/logout", { method: "POST", body: "{}" }); showLogin(); });
-$("#open-create").addEventListener("click", () => { createPanel.classList.remove("hidden"); contentGrid.classList.add("has-form"); });
-$("#close-create").addEventListener("click", () => { createPanel.classList.add("hidden"); contentGrid.classList.remove("has-form"); });
-$("#create-form").addEventListener("submit", async event => {
-  event.preventDefault(); $("#create-error").textContent = "";
-  const payload = Object.fromEntries(new FormData(event.currentTarget));
-  payload.nextReviewAt = payload.nextReviewAt || null;
-  try { await request("/api/v1/ai-systems", { method: "POST", body: JSON.stringify(payload) }); event.currentTarget.reset(); createPanel.classList.add("hidden"); contentGrid.classList.remove("has-form"); await loadSystems(); }
-  catch (error) { $("#create-error").textContent = error.message; }
+for (const button of $$("[data-tab]")) button.addEventListener("click", () => openTab(button.dataset.tab));
+$("#logout").addEventListener("click", async () => {
+  try { await request("/api/v1/auth/logout", { method: "POST", body: {} }); }
+  catch (error) { console.error("Sign-out request failed", error); }
+  showLogin();
 });
 
-(async () => { try { const data = await request("/api/v1/auth/me"); showDashboard(data.user); await loadSystems(); } catch { showLogin(); } })();
+initAuth({ onSignedIn: showDashboard });
+initOverview();
+initRequests();
+initPolicy();
+initDiscovery({ onRegistered: loadOverview });
+initReports();
+initTeam();
+initSettings({ onMfaEnabled: async () => showDashboard((await request("/api/v1/auth/me")).user) });
+
+(async () => {
+  try { await showDashboard((await request("/api/v1/auth/me")).user); }
+  catch { showLogin({ keepStep: true }); }
+})();

@@ -12,6 +12,10 @@ const actor = (role: Role): RequestActor => ({
 describe("authorization", () => {
   it("allows contributors to create AI systems", () => expect(() => requirePermission(actor("contributor"), "ai_system:create")).not.toThrow());
   it("blocks read-only mutation", () => expect(() => requirePermission(actor("read_only"), "ai_system:create")).toThrow(ForbiddenError));
+  it("reserves approval for owners and admins", () => {
+    expect(() => requirePermission(actor("admin"), "ai_system:approve")).not.toThrow();
+    expect(() => requirePermission(actor("contributor"), "ai_system:approve")).toThrow(ForbiddenError);
+  });
   it("blocks cross-tenant access", () => expect(() => requireSameOrganization(actor("owner"), "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")).toThrow(ForbiddenError));
 });
 

@@ -1,17 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../../../../db";
-import { aiSystems, auditEvents, riskAssessments } from "../../../../../db/schema";
+import { getDb } from "@/db";
+import { aiSystems, auditEvents, riskAssessments } from "@/db/schema";
+import { handle, readJson, requireAdministrator, requireSameOrigin, viewer } from "@/lib/server/governance";
 
 const questions = ["sensitiveData","customerImpact","automatedDecision","externalAccess","regulatedUse","limitedOversight","lowTransparency","weakIncidentPlan"] as const;
 type Tier = "low"|"moderate"|"high"|"prohibited";
 type Decision = "approved"|"conditional"|"prohibited";
-
-function identity(request: Request) {
-  const userId = request.headers.get("oai-authenticated-user-id");
-  if (!userId) throw new Error("Authentication required");
-  return { userId, organizationId: userId };
-}
 
 function calculate(payload: Record<string, unknown>) {
   const weights = { sensitiveData:18, customerImpact:16, automatedDecision:18, externalAccess:10, regulatedUse:16, limitedOversight:10, lowTransparency:6, weakIncidentPlan:6 };
@@ -32,16 +27,18 @@ function calculate(payload: Record<string, unknown>) {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{id:string}> }) {
-  try {
-    const actor = identity(request), { id } = await params;
+  return handle("load assessment", async () => {
+    const actor = await requireAdministrator(viewer(request)), { id } = await params;
     const rows = await getDb().select().from(riskAssessments).where(and(eq(riskAssessments.organizationId, actor.organizationId), eq(riskAssessments.aiSystemId, id))).limit(1);
     return Response.json({ assessment: rows[0] ?? null });
-  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Unable to load assessment" }, { status: 500 }); }
+  });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{id:string}> }) {
-  try {
-    const actor = identity(request), { id } = await params, payload = await request.json() as Record<string,unknown>, db = getDb();
+  return handle("complete assessment", async () => {
+    requireSameOrigin(request);
+    const v = viewer(request), member = await requireAdministrator(v), actor = { userId: v.userId, organizationId: member.organizationId };
+    const { id } = await params, payload = await readJson(request), db = getDb();
     const system = await db.select().from(aiSystems).where(and(eq(aiSystems.id,id),eq(aiSystems.organizationId,actor.organizationId))).limit(1);
     if (!system[0]) return Response.json({ error: "AI system not found" }, { status: 404 });
     for (const question of questions) if (typeof payload[question] !== "boolean") return Response.json({ error: `${question} must be answered` }, { status: 400 });
@@ -53,5 +50,5 @@ export async function POST(request: Request, { params }: { params: Promise<{id:s
       db.insert(auditEvents).values({ id:randomUUID(),organizationId:actor.organizationId,actorUserId:actor.userId,action:"risk_assessment.completed",targetType:"ai_system",targetId:id,metadata:JSON.stringify({score:result.score,tier:result.tier,decision:result.decision}),createdAt:now })
     ]);
     return Response.json({ assessment:{ score:result.score,calculatedTier:result.tier,decision:result.decision,requiredControls:result.controls,completedAt:now } });
-  } catch (error) { return Response.json({ error:error instanceof Error ? error.message : "Unable to complete assessment" }, { status:500 }); }
+  });
 }
