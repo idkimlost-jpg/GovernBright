@@ -11,6 +11,7 @@ import { MfaService } from "./mfa.js";
 import { OrganizationService } from "./organization.js";
 import { PasswordResetService } from "./password-reset.js";
 import { SsoService } from "./sso.js";
+import { PolicyService } from "./policies.js";
 import { OidcClient } from "../platform/oidc.js";
 import { ToolRequestService } from "./tool-requests.js";
 
@@ -26,10 +27,12 @@ export function createPlatform(config: Config): Platform {
 export function createServices(config: Config, pool: pg.Pool, platform: Platform = createPlatform(config)): Services {
   const { secrets, mailer } = platform;
   const auth = new AuthService(pool, config.SESSION_TTL_HOURS, secrets);
+  const policies = new PolicyService(pool);
   return {
     auth,
     aiSystems: new AiSystemService(pool),
-    toolRequests: new ToolRequestService(pool),
+    toolRequests: new ToolRequestService(pool, policies),
+    policies,
     members: new MemberService(pool),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),

@@ -10,6 +10,7 @@ import { toolRequestDecision, toolRequestInput } from "../services/tool-requests
 import { organizationSettingsInput } from "../services/organization.js";
 import { registerAuthRoutes } from "./auth-routes.js";
 import { registerSsoRoutes } from "./sso-routes.js";
+import { registerGovernanceRoutes } from "./governance-routes.js";
 import type { Services } from "./context.js";
 import { idParams, requireSameOrigin } from "./shared.js";
 
@@ -29,6 +30,7 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
   app.get("/styles.css", async (_request, reply) => reply.type("text/css; charset=utf-8").send(await readFile(assets.css)));
   await registerAuthRoutes(app, config, services);
   await registerSsoRoutes(app, config, services);
+  await registerGovernanceRoutes(app, config, services);
   app.get("/api/v1/ai-systems", async request => service.list(await resolveActor(request, config, auth)));
   app.get("/api/v1/ai-systems/:id", async (request, reply) => {
     const { id } = z.object({ id: z.uuid() }).parse(request.params);

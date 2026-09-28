@@ -5,6 +5,7 @@ import { ConflictError, NotFoundError } from "../domain/errors.js";
 import type { RequestActor, ToolRequest } from "../domain/types.js";
 import { withTransaction } from "../db/transaction.js";
 import { recordAudit } from "./audit.js";
+import type { PolicyService } from "./policies.js";
 
 export const toolRequestInput = z.object({
   toolName: z.string().trim().min(1).max(120),
@@ -32,7 +33,7 @@ const selectFields = `r.id, r.organization_id AS "organizationId", r.requester_u
 const fromRequests = `FROM tool_requests r JOIN users u ON u.id = r.requester_user_id`;
 
 export class ToolRequestService {
-  constructor(private readonly pool: pg.Pool) {}
+  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService) {}
 
   // Deciders see every request in their organization; everyone else sees only their own.
   async list(actor: RequestActor): Promise<ToolRequest[]> {
@@ -48,6 +49,7 @@ export class ToolRequestService {
     const toolKey = toolKeyFor(input.toolName);
     if (!toolKey) throw Object.assign(new Error("Tool name must contain letters or numbers"), { statusCode: 400 });
     return withTransaction(this.pool, async client => {
+      await this.policies?.requireAccepted(client, actor);
       const inserted = await client.query<{ id: string }>(`INSERT INTO tool_requests
         (organization_id, requester_user_id, tool_key, tool_name, business_purpose, data_description)
         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
