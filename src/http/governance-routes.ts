@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Config } from "../config.js";
 import { policyInput } from "../services/policies.js";
 import { assessmentInput } from "../services/assessments.js";
+import { auditQuery, renderEvidenceHtml } from "../services/reports.js";
 import { resolveActor } from "./auth.js";
 import type { Services } from "./context.js";
 import { idParams, requireSameOrigin } from "./shared.js";
@@ -17,6 +18,15 @@ export async function registerGovernanceRoutes(app: FastifyInstance, config: Con
     const assessment = await services.assessments.assess(await actor(request), idParams.parse(request.params).id, assessmentInput.parse(request.body));
     return reply.code(201).send(assessment);
   });
+
+  app.get("/api/v1/reports/audit", async request => services.reports.auditLog(await actor(request), auditQuery.parse(request.query)));
+  app.get("/api/v1/reports/audit.csv", async (request, reply) => {
+    const csv = await services.reports.auditCsv(await actor(request), auditQuery.parse(request.query));
+    return reply.type("text/csv; charset=utf-8").header("content-disposition", `attachment; filename="governbright-audit-${new Date().toISOString().slice(0, 10)}.csv"`).send(csv);
+  });
+  app.get("/api/v1/reports/evidence", async request => services.reports.evidence(await actor(request)));
+  app.get("/api/v1/reports/evidence.html", async (request, reply) =>
+    reply.type("text/html; charset=utf-8").header("cache-control", "no-store").send(renderEvidenceHtml(await services.reports.evidence(await actor(request)))));
 
   app.get("/api/v1/policy", async request => policies.current(await actor(request)));
   app.get("/api/v1/policy/history", async request => policies.history(await actor(request)));

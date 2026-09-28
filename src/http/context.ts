@@ -7,6 +7,7 @@ import type { PasswordResetService } from "../services/password-reset.js";
 import type { SsoService } from "../services/sso.js";
 import type { PolicyService } from "../services/policies.js";
 import type { AssessmentService } from "../services/assessments.js";
+import type { ReportService } from "../services/reports.js";
 import type { ToolRequestService } from "../services/tool-requests.js";
 
 export type Services = {
@@ -20,4 +21,5 @@ export type Services = {
   sso: SsoService;
   policies: PolicyService;
   assessments: AssessmentService;
+  reports: ReportService;
 };

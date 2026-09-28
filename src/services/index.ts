@@ -13,6 +13,7 @@ import { PasswordResetService } from "./password-reset.js";
 import { SsoService } from "./sso.js";
 import { PolicyService } from "./policies.js";
 import { AssessmentService } from "./assessments.js";
+import { ReportService } from "./reports.js";
 import { OidcClient } from "../platform/oidc.js";
 import { ToolRequestService } from "./tool-requests.js";
 
@@ -35,6 +36,7 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
     toolRequests: new ToolRequestService(pool, policies),
     policies,
     assessments: new AssessmentService(pool),
+    reports: new ReportService(pool),
     members: new MemberService(pool),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),
