@@ -15,6 +15,13 @@
       "when": 1790566397441,
       "tag": "0001_jittery_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790567107208,
+      "tag": "0002_nappy_sway",
+      "breakpoints": true
     }
   ]
 }
