@@ -14,6 +14,8 @@ import { SsoService } from "./sso.js";
 import { PolicyService } from "./policies.js";
 import { AssessmentService } from "./assessments.js";
 import { ReportService } from "./reports.js";
+import { CatalogService } from "./catalog.js";
+import { DiscoveryService } from "./discovery.js";
 import { OidcClient } from "../platform/oidc.js";
 import { Notifier } from "../platform/notifier.js";
 import { ToolRequestService } from "./tool-requests.js";
@@ -32,6 +34,7 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
   const notifier = new Notifier(pool, secrets, appOrigin(config), platform.fetch);
   const auth = new AuthService(pool, config.SESSION_TTL_HOURS, secrets);
   const policies = new PolicyService(pool, notifier);
+  const catalog = new CatalogService(pool);
   return {
     auth,
     aiSystems: new AiSystemService(pool),
@@ -39,6 +42,8 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
     policies,
     assessments: new AssessmentService(pool),
     reports: new ReportService(pool),
+    catalog,
+    discovery: new DiscoveryService(pool, catalog),
     members: new MemberService(pool),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),

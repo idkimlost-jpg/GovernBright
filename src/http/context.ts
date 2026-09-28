@@ -8,6 +8,8 @@ import type { SsoService } from "../services/sso.js";
 import type { PolicyService } from "../services/policies.js";
 import type { AssessmentService } from "../services/assessments.js";
 import type { ReportService } from "../services/reports.js";
+import type { CatalogService } from "../services/catalog.js";
+import type { DiscoveryService } from "../services/discovery.js";
 import type { ToolRequestService } from "../services/tool-requests.js";
 
 export type Services = {
@@ -22,4 +24,6 @@ export type Services = {
   policies: PolicyService;
   assessments: AssessmentService;
   reports: ReportService;
+  catalog: CatalogService;
+  discovery: DiscoveryService;
 };
