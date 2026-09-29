@@ -99,4 +99,10 @@ Example body:
 4. Add invitations and membership administration.
 5. Add policy versions, controls, evidence metadata, and private file storage.
 
+## License
+
+GovernBright is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+The Apache License permits commercial use, modification, and redistribution subject to its terms. It does not grant permission to use the GovernBright name or logos for third-party branding or endorsement.
+
 No claim of compliance, security certification, or patentability is made by this source code.
