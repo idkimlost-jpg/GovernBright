@@ -60,6 +60,13 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
     const { id } = idParams.parse(request.params);
     return toolRequests.decide(await actor(request), id, toolRequestDecision.parse(request.body));
   });
+  // A plain link the employee opens in a new tab. The session cookie is SameSite=Strict, so a link
+  // on another site arrives signed out and cannot launch or record anything.
+  app.get("/api/v1/tool-requests/:id/launch", async (request, reply) => {
+    const { id } = idParams.parse(request.params);
+    const { url } = await toolRequests.launch(await actor(request), id);
+    return reply.redirect(url, 303);
+  });
 
   app.get("/api/v1/organization", async request => services.organization.get(await actor(request)));
   app.patch("/api/v1/organization", async request => {

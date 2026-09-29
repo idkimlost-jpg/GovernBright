@@ -72,16 +72,16 @@ export class ToolRequestService {
   async decide(actor: RequestActor, id: string, input: ToolRequestDecision): Promise<ToolRequest> {
     requirePermission(actor, "tool_request:decide");
     const decided = await withTransaction(this.pool, async client => {
-      const updated = await client.query(`UPDATE tool_requests
+      const updated = await client.query<{ toolName: string }>(`UPDATE tool_requests
         SET status = $3, decided_by = $4, decision_notes = $5, decided_at = now()
-        WHERE id = $1 AND organization_id = $2 AND status = 'pending' RETURNING id`,
+        WHERE id = $1 AND organization_id = $2 AND status = 'pending' RETURNING tool_name AS "toolName"`,
         [id, actor.organizationId, input.decision, actor.userId, input.notes]);
       if (!updated.rowCount) {
         const existing = await client.query(`SELECT 1 FROM tool_requests WHERE id = $1 AND organization_id = $2`, [id, actor.organizationId]);
         if (existing.rowCount) throw new ConflictError("This request has already been decided");
         throw new NotFoundError("Tool request not found");
       }
-      await recordAudit(client, actor, `tool_request.${input.decision}`, "tool_request", id, { notes: input.notes });
+      await recordAudit(client, actor, `tool_request.${input.decision}`, "tool_request", id, { notes: input.notes, toolName: updated.rows[0]!.toolName });
       const result = await client.query<ToolRequest>(`SELECT ${selectFields} ${fromRequests} WHERE r.id = $1`, [id]);
       return result.rows[0]!;
     });
@@ -95,5 +95,22 @@ export class ToolRequestService {
       void this.provisioning.grant(actor.organizationId, decided.toolKey, decided.requesterUserId).catch(error => console.warn("Provisioning failed", error));
     }
     return decided;
+  }
+
+  // Opens an approved tool for the person who requested it and records the launch in the audit log.
+  // The destination comes from the tool catalog, never from the request, so it is always a vetted https link.
+  async launch(actor: RequestActor, id: string): Promise<{ url: string }> {
+    requirePermission(actor, "tool_request:create");
+    return withTransaction(this.pool, async client => {
+      const found = await client.query<{ status: string; toolName: string; toolKey: string; website: string | null }>(`SELECT r.status, r.tool_name AS "toolName", r.tool_key AS "toolKey", c.website
+        FROM tool_requests r LEFT JOIN ai_tool_catalog c ON c.key = r.tool_key
+        WHERE r.id = $1 AND r.organization_id = $2 AND r.requester_user_id = $3`, [id, actor.organizationId, actor.userId]);
+      const request = found.rows[0];
+      if (!request) throw new NotFoundError("Tool request not found");
+      if (request.status !== "approved") throw new ConflictError("This request has not been approved");
+      if (!request.website) throw new ConflictError(`${request.toolName} has no launch link in the tool catalog`);
+      await recordAudit(client, actor, "tool_request.launched", "tool_request", id, { toolName: request.toolName, toolKey: request.toolKey, url: request.website });
+      return { url: request.website };
+    });
   }
 }

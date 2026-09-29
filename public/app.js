@@ -1,7 +1,8 @@
 import { $, $$, can, session, request, toggle } from "./js/core.js";
 import { initAuth, showStep } from "./js/auth.js";
 import { initOverview, loadOverview, applyOverviewRole } from "./js/overview.js";
-import { initRequests, loadRequests } from "./js/requests.js";
+import { initRequests, loadRequests, ensureCatalog, isLaunchable } from "./js/requests.js";
+import { initLive, startLive, stopLive } from "./js/live.js";
 import { initPolicy, loadPolicy } from "./js/policy.js";
 import { initDiscovery, loadDiscovery } from "./js/discovery.js";
 import { initReports, loadReports } from "./js/reports.js";
@@ -30,6 +31,7 @@ async function openTab(tab) {
 }
 
 function showLogin({ keepStep = false } = {}) {
+  stopLive();
   session.user = null;
   toggle($("#login-view"), true); toggle($("#dashboard-view"), false);
   if (!keepStep) showStep("password");
@@ -46,6 +48,10 @@ async function showDashboard(user) {
   for (const option of $$(".owner-only")) { option.hidden = user.role !== "owner"; option.disabled = user.role !== "owner"; }
   toggle($("#mfa-required-banner"), !!user.mfaSetupRequired);
   applyOverviewRole(user.role);
+  if (!user.mfaSetupRequired) {
+    await ensureCatalog().catch(() => {});
+    startLive({ launchable: isLaunchable, onChange: () => { if ($("[data-tab].active")?.dataset.tab === "requests") loadRequests().catch(() => {}); } });
+  }
   await openTab(location.hash.slice(1) || "overview");
 }
 
@@ -59,6 +65,7 @@ $("#logout").addEventListener("click", async () => {
 initAuth({ onSignedIn: showDashboard });
 initOverview();
 initRequests();
+initLive();
 initPolicy();
 initDiscovery({ onRegistered: loadOverview });
 initReports();

@@ -86,12 +86,38 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: core", () => {
     const created = await app.inject({ method: "POST", url: "/api/v1/tool-requests", headers: { ...headers, cookie: employeeCookie }, payload: { toolName: "ChatGPT", businessPurpose: "Summaries" } });
     expect(created.statusCode).toBe(201);
     const id = created.json().id;
+    const launch = (cookie?: string) => app.inject({ method: "GET", url: `/api/v1/tool-requests/${id}/launch`, headers: cookie ? { cookie } : {} });
+    expect((await launch(employeeCookie)).statusCode).toBe(409);
     expect((await app.inject({ method: "PATCH", url: `/api/v1/tool-requests/${id}`, headers: { ...headers, cookie: employeeCookie }, payload: { decision: "approved" } })).statusCode).toBe(403);
     expect((await app.inject({ method: "GET", url: "/api/v1/members", headers: { cookie: employeeCookie } })).statusCode).toBe(403);
     const decided = await app.inject({ method: "PATCH", url: `/api/v1/tool-requests/${id}`, headers: { ...headers, cookie: ownerCookie }, payload: { decision: "approved" } });
     expect(decided.json()).toMatchObject({ status: "approved" });
     const mine = await app.inject({ method: "GET", url: "/api/v1/tool-requests", headers: { cookie: employeeCookie } });
     expect(mine.json()).toEqual([expect.objectContaining({ id, status: "approved" })]);
+
+    // Only the requester launches, and each launch is audited.
+    expect((await launch()).statusCode).toBe(401);
+    expect((await launch(ownerCookie)).statusCode).toBe(404);
+    const launched = await launch(employeeCookie);
+    expect(launched.statusCode).toBe(303);
+    expect(launched.headers.location).toBe("https://chatgpt.com");
+    const audit = await h.pool.query("SELECT actor_user_id, metadata FROM audit_events WHERE target_id = $1 AND action = 'tool_request.launched'", [id]);
+    expect(audit.rows).toEqual([{ actor_user_id: employee.actor.userId, metadata: expect.objectContaining({ toolName: "ChatGPT", url: "https://chatgpt.com" }) }]);
+    const approval = await h.pool.query("SELECT metadata FROM audit_events WHERE target_id = $1 AND action = 'tool_request.approved'", [id]);
+    expect(approval.rows[0].metadata).toMatchObject({ toolName: "ChatGPT" });
     await app.close();
+  });
+
+  it("launches only approved tools that have a catalog link", async () => {
+    const a = await organization("Launch");
+    const b = await organization("Launch other");
+    const employee = await addMember(a.owner, "contributor");
+    const unlisted = await svc().toolRequests.create(employee.actor, { toolName: "In-house bot", businessPurpose: "Testing", dataDescription: "" });
+    await svc().toolRequests.decide(a.owner, unlisted.id, { decision: "approved", notes: "" });
+    await expect(svc().toolRequests.launch(employee.actor, unlisted.id)).rejects.toBeInstanceOf(ConflictError);
+    await expect(svc().toolRequests.launch(b.owner, unlisted.id)).rejects.toBeInstanceOf(NotFoundError);
+    const rejected = await svc().toolRequests.create(employee.actor, { toolName: "ChatGPT", businessPurpose: "Testing", dataDescription: "" });
+    await svc().toolRequests.decide(a.owner, rejected.id, { decision: "rejected", notes: "" });
+    await expect(svc().toolRequests.launch(employee.actor, rejected.id)).rejects.toBeInstanceOf(ConflictError);
   });
 });
