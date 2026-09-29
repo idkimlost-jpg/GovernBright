@@ -4,6 +4,7 @@ import type { Mailer } from "../platform/mailer.js";
 import { hashPassword, newToken, tokenHash } from "./auth.js";
 
 const RESET_TTL_MS = 60 * 60 * 1000;
+const RESEND_AFTER_SECONDS = 120;
 
 export class PasswordResetService {
   constructor(private readonly pool: pg.Pool, private readonly mailer: Mailer, private readonly appOrigin: string) {}
@@ -16,15 +17,20 @@ export class PasswordResetService {
         AND EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.active = true)`, [email]);
     const user = result.rows[0];
     if (!user) return;
+    // At most one email per account every two minutes, so the form can't be used to flood an inbox.
+    const recent = await this.pool.query(`SELECT 1 FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL
+      AND created_at > now() - make_interval(secs => $2)`, [user.id, RESEND_AFTER_SECONDS]);
+    if (recent.rowCount) return;
     const token = newToken();
     await this.pool.query(`DELETE FROM password_reset_tokens WHERE user_id = $1 OR expires_at <= now()`, [user.id]);
     await this.pool.query(`INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES ($1,$2,$3)`,
       [tokenHash(token), user.id, new Date(Date.now() + RESET_TTL_MS)]);
-    await this.mailer.send({
+    // Sent in the background: waiting on the mail server would make existing accounts respond slower.
+    void this.mailer.send({
       to: user.email,
       subject: "Reset your GovernBright password",
       text: `Someone asked to reset the password for this GovernBright account.\n\nChoose a new password here (the link works once, for one hour):\n${this.appOrigin}/?reset=${token}\n\nIf this wasn't you, ignore this email; your password stays the same.`
-    });
+    }).catch(error => console.warn("Password reset email failed", error instanceof Error ? error.message : error));
   }
 
   // Sets the new password, burns the token and signs the user out everywhere.
