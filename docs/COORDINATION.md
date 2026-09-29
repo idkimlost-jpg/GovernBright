@@ -24,19 +24,13 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 
 | Who | Work | Files | Pull request |
 |---|---|---|---|
-| Claude | Live request-to-launch demo; launch is a same-origin `POST` | `public/app.js`, `public/js/live.js`, `public/js/requests.js`, `public/js/reports.js`, `src/services/tool-requests.ts`, `src/http/routes.ts` | #6 |
+| — | Nothing in progress. Add a row before starting work. | | |
 
-Merged: #9 (these notes), #4 (landing page), #5 (admin email on new requests).
+Merged on 2026-09-29, in order: #9 (these notes), #4 (landing page), #5 (admin email on new requests), #6 (live request-to-launch demo). After merging, the full test suite (72 tests) and the two-browser demo passed on the combined code.
 
-Merge order:
-1. #9 (these notes)
-2. #4 (landing page)
-3. #5 (admin email)
-4. #6 (live demo): Claude merges the updated `main` into it and resolves the `public/app.js` conflict with #4
-5. Claude reruns the full test suite and the two-browser demo on the result
-6. Credential scan of the final `main`, then the owner decides on making the repository public
+Remaining before the repository goes public: the owner deletes the merged and superseded branches, then changes the visibility.
 
-The full-history credential scan was clean on 2026-09-29 (gitleaks 8.28.0, all branches, plus a manual search). It becomes public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
+The full-history credential scan was clean again after these merges (gitleaks 8.28.0, all branches). It becomes public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
 
 ## Known issues not yet assigned
 
