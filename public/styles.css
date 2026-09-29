@@ -19,3 +19,4 @@ dialog{border:0;border-radius:18px;padding:26px;width:min(720px,94vw);max-height
 .badge.on,.badge.connected,.badge.enforced{background:var(--mint);color:#14645b}.badge.conditional,.badge.draft{background:#fff1d6;color:#8a5a00}.badge.retired,.badge.off{background:#edf3f1;color:#4b5c5b}.badge.error{background:#fde8e6;color:#a13636}.badge.registered{background:var(--mint);color:#14645b}.badge.ignored,.badge.new{background:#edf3f1;color:#4b5c5b}
 @media (max-width:900px){.shell{grid-template-columns:1fr}.brand-panel{position:static;height:auto;padding:24px}.brand-copy{display:none}main{padding:20px}.metrics,.metrics.small{grid-template-columns:repeat(2,1fr)}.content-grid.has-form{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}}
 .badge.deactivated,.badge.pending{background:#fff1d6;color:#8a5a00}
+td code{word-break:break-all}
