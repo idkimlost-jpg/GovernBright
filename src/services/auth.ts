@@ -125,6 +125,7 @@ export class AuthService {
   }
 
   async resolve(token: string, correlationId: string): Promise<AuthenticatedSession> {
+    await this.pool.query(`DELETE FROM sessions WHERE token_hash = $1 AND expires_at <= now()`, [tokenHash(token)]);
     const result = await this.pool.query<AuthenticatedSession>(`SELECT u.id AS "userId", u.email,
         u.display_name AS "displayName", o.id AS "organizationId", o.name AS "organizationName", m.role,
         (u.totp_enabled_at IS NOT NULL) AS "mfaEnabled",
@@ -142,6 +143,14 @@ export class AuthService {
   }
 
   async logout(token: string): Promise<void> {
-    await this.pool.query(`DELETE FROM sessions WHERE token_hash = $1`, [tokenHash(token)]);
+    const result = await this.pool.query<{ userId: string; organizationId: string }>(`DELETE FROM sessions
+      WHERE token_hash = $1 RETURNING user_id AS "userId", organization_id AS "organizationId"`, [tokenHash(token)]);
+    const session = result.rows[0];
+    if (session) {
+      await this.pool.query(`INSERT INTO audit_events
+        (organization_id, actor_user_id, action, target_type, target_id, result, correlation_id, metadata)
+        VALUES ($1,$2,'auth.logout','session',NULL,'success',$3,'{}')`,
+        [session.organizationId, session.userId, randomUUID()]);
+    }
   }
 }
