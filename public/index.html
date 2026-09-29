@@ -7,7 +7,62 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="shell">
+  <div id="landing-view" class="landing hidden">
+    <header class="landing-nav">
+      <div class="brand"><span class="mark">G</span><span>GovernBright</span></div>
+      <nav aria-label="Page"><a href="#mission">Mission</a><a href="#portals">Sign in</a></nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Responsible AI, made operational</p>
+        <h1>Make responsible AI the easy path.</h1>
+        <p class="lead">GovernBright gives your organization one clear place to see every AI tool in use, decide what’s allowed, and prove it. Employees get a fast, fair way to request the tools they need. Administrators get the register, the risk reviews and the evidence trail.</p>
+      </div>
+
+      <div id="portals" class="portals" aria-label="Choose how to sign in">
+        <article class="portal">
+          <p class="eyebrow">For employees</p>
+          <h2>Employee sign-in</h2>
+          <ul>
+            <li>Request an AI tool for your work</li>
+            <li>Read and accept the AI use policy</li>
+            <li>Track the status of your requests</li>
+          </ul>
+          <button type="button" data-portal="employee">Continue as employee</button>
+        </article>
+        <article class="portal admin">
+          <p class="eyebrow">For administrators</p>
+          <h2>Admin sign-in</h2>
+          <ul>
+            <li>Maintain the AI system register</li>
+            <li>Run risk assessments and decide requests</li>
+            <li>Manage the team, policy and evidence reports</li>
+          </ul>
+          <button type="button" data-portal="admin">Continue as administrator</button>
+        </article>
+      </div>
+    </section>
+
+    <section id="mission" class="mission">
+      <div class="mission-intro">
+        <p class="eyebrow">Our mission</p>
+        <h2>Help every organization adopt AI with confidence, without slowing its people down.</h2>
+        <p>AI tools arrive faster than policies can keep up. Most organizations can’t say which tools their people use, what data goes into them, or who signed off. GovernBright closes that gap: it makes AI use visible, gives each decision an owner, and keeps a record you can show an auditor, a customer or a regulator.</p>
+      </div>
+      <div class="pillars">
+        <article><h3>Visibility</h3><p>A single register of every AI system, plus shadow-AI discovery from sign-in and expense data, so nothing hides in the gaps.</p></article>
+        <article><h3>Accountability</h3><p>Named owners, a versioned AI use policy with per-person sign-off, and an approval path for every new tool.</p></article>
+        <article><h3>Evidence</h3><p>Append-only audit records and risk assessments whose controls cite the EU AI Act, NIST AI RMF, GDPR and ISO/IEC 42001.</p></article>
+        <article><h3>People first</h3><p>A clear yes-or-no in place of quiet workarounds: employees ask, admins decide, and approved seats are provisioned automatically.</p></article>
+      </div>
+      <p class="fine-print">Framework mappings are indicative and are not legal advice.</p>
+    </section>
+
+    <footer class="landing-footer"><span>© GovernBright</span><span>Organization-scoped access · append-only audit records</span></footer>
+  </div>
+
+  <div class="shell hidden">
     <aside class="brand-panel">
       <div class="brand"><span class="mark">G</span><span>GovernBright</span></div>
       <div class="brand-copy">
@@ -20,7 +75,8 @@
 
     <main>
       <section id="login-view" class="login-card">
-        <p class="eyebrow">Secure workspace</p>
+        <button type="button" class="link back-link" id="back-to-landing">← Back</button>
+        <p class="eyebrow" id="login-portal">Secure workspace</p>
         <h2 id="login-title">Welcome back</h2>
         <p class="muted" id="login-subtitle">Sign in to your organization’s governance workspace.</p>
         <p id="login-notice" class="notice hidden" role="status"></p>
@@ -59,6 +115,7 @@
           <div class="user-menu"><span id="user-name"></span><button id="logout" class="secondary">Sign out</button></div>
         </header>
         <p id="mfa-required-banner" class="notice warning hidden" role="status">Your organization requires two-factor authentication. Set it up below to continue.</p>
+        <p id="portal-notice" class="notice hidden" role="status">Your account has employee access, so administrator tools aren’t available. Ask an owner or admin if you need them.</p>
 
         <nav class="tabs" id="tabs" aria-label="Sections">
           <button data-tab="overview">Overview</button>
