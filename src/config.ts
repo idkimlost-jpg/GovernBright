@@ -15,6 +15,10 @@ const schema = z.object({
   TRUST_PROXY: z.string().optional().transform(v => v === undefined || v === "" || v === "false" ? false : v === "true" ? true : /^\d+$/.test(v) ? Number(v) : v),
   MAIL_FROM: z.string().min(3).default("GovernBright <no-reply@governbright.local>")
 }).superRefine((config, ctx) => {
+  if (config.ALLOW_DEV_AUTH) {
+    const hostname = config.APP_ORIGIN ? new URL(config.APP_ORIGIN).hostname : "";
+    if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) ctx.addIssue({ code: "custom", path: ["ALLOW_DEV_AUTH"], message: "ALLOW_DEV_AUTH requires a localhost APP_ORIGIN" });
+  }
   if (config.NODE_ENV !== "production") return;
   if (!config.APP_ORIGIN) ctx.addIssue({ code: "custom", path: ["APP_ORIGIN"], message: "APP_ORIGIN is required in production" });
   if (!config.APP_ENCRYPTION_KEY) ctx.addIssue({ code: "custom", path: ["APP_ENCRYPTION_KEY"], message: "APP_ENCRYPTION_KEY is required in production" });
