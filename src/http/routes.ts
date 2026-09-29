@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -35,6 +36,23 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
   app.get("/", async (_request, reply) => reply.type("text/html; charset=utf-8").send(await readFile(assets.html)));
   app.get("/app.js", async (_request, reply) => reply.type("application/javascript; charset=utf-8").send(await readFile(assets.js)));
   app.get("/styles.css", async (_request, reply) => reply.type("text/css; charset=utf-8").send(await readFile(assets.css)));
+  // Landing-page media. The name pattern keeps requests inside public/media. Videos are served in
+  // byte ranges, which browsers (Safari in particular) need in order to play and seek them.
+  const mediaTypes: Record<string, string> = { mp4: "video/mp4", jpg: "image/jpeg" };
+  app.get("/media/:name", async (request, reply) => {
+    const { name } = z.object({ name: z.string().regex(/^[a-z0-9-]+\.(mp4|jpg)$/) }).parse(request.params);
+    const path = fileURLToPath(new URL(`../../public/media/${name}`, import.meta.url));
+    const info = await stat(path).catch(() => null);
+    if (!info?.isFile()) return reply.code(404).send({ error: "Not found" });
+    reply.type(mediaTypes[name.split(".").pop()!]!).header("accept-ranges", "bytes").header("cache-control", "public, max-age=3600");
+    const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
+    if (!range || (!range[1] && !range[2])) return reply.header("content-length", info.size).send(createReadStream(path));
+    const start = range[1] ? Number(range[1]) : Math.max(0, info.size - Number(range[2]));
+    const end = range[1] && range[2] ? Math.min(Number(range[2]), info.size - 1) : info.size - 1;
+    if (start >= info.size || start > end) return reply.code(416).header("content-range", `bytes */${info.size}`).send();
+    return reply.code(206).header("content-range", `bytes ${start}-${end}/${info.size}`).header("content-length", end - start + 1)
+      .send(createReadStream(path, { start, end }));
+  });
   // Front-end modules; the name pattern keeps requests inside public/js.
   app.get("/js/:name", async (request, reply) => {
     const { name } = z.object({ name: z.string().regex(/^[a-z-]+\.js$/) }).parse(request.params);

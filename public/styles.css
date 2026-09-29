@@ -36,3 +36,5 @@ td code{word-break:break-all}
 @media(max-width:1000px){.service-grid{grid-template-columns:1fr 1fr}.contact{grid-template-columns:1fr}}
 @media(max-width:600px){.service-grid{grid-template-columns:1fr}.services,.contact{padding-top:56px;padding-bottom:56px}.contact-form{padding:20px}}
 @media(max-width:600px){.landing-nav .wide-only{display:none}}
+.demo-link{display:inline-block;margin-top:22px;color:#c9f36b;font-weight:750;text-decoration:none}.demo-link:hover{text-decoration:underline}.demo{padding:84px clamp(16px,5vw,64px) 0;max-width:1200px;margin:auto}.demo h2{font-size:clamp(26px,3.4vw,36px);line-height:1.15;letter-spacing:-.8px;margin:0 0 28px}.demo video{display:block;width:100%;height:auto;border-radius:18px;background:#092f31;box-shadow:var(--shadow)}
+@media(max-width:600px){.demo{padding-top:56px}}
