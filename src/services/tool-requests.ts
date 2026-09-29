@@ -8,6 +8,7 @@ import { recordAudit } from "./audit.js";
 import type { PolicyService } from "./policies.js";
 import { announce, type Notifier } from "../platform/notifier.js";
 import type { ProvisioningService } from "./provisioning.js";
+import type { Mailer } from "../platform/mailer.js";
 
 export const toolRequestInput = z.object({
   toolName: z.string().trim().min(1).max(120),
@@ -35,7 +36,8 @@ const selectFields = `r.id, r.organization_id AS "organizationId", r.requester_u
 const fromRequests = `FROM tool_requests r JOIN users u ON u.id = r.requester_user_id`;
 
 export class ToolRequestService {
-  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService, private readonly notifier?: Notifier, private readonly provisioning?: ProvisioningService) {}
+  constructor(private readonly pool: pg.Pool, private readonly policies?: PolicyService, private readonly notifier?: Notifier, private readonly provisioning?: ProvisioningService,
+    private readonly mail?: { mailer: Mailer; appOrigin: string }) {}
 
   // Deciders see every request in their organization; everyone else sees only their own.
   async list(actor: RequestActor): Promise<ToolRequest[]> {
@@ -66,7 +68,27 @@ export class ToolRequestService {
       lines: [`${created.requesterName} (${created.requesterEmail}) wants to use ${created.toolName}.`, `Purpose: ${created.businessPurpose}`],
       link: "/#requests"
     });
+    void this.emailDeciders(created).catch(error => console.warn("New request email failed", error instanceof Error ? error.message : error));
     return created;
+  }
+
+  // Emails the organization's active owners and admins, other than the requester, so a request
+  // is seen without Slack. Best effort, like Slack: failures never undo the request.
+  private async emailDeciders(request: ToolRequest): Promise<void> {
+    if (!this.mail) return;
+    const recipients = await this.pool.query<{ email: string }>(`SELECT u.email FROM memberships m JOIN users u ON u.id = m.user_id
+      WHERE m.organization_id = $1 AND m.active AND m.role IN ('owner', 'admin') AND m.user_id <> $2`, [request.organizationId, request.requesterUserId]);
+    const text = [
+      `${request.requesterName} (${request.requesterEmail}) wants to use ${request.toolName}.`,
+      `Purpose: ${request.businessPurpose}`,
+      ...(request.dataDescription ? [`Data involved: ${request.dataDescription}`] : []),
+      "",
+      `Review and decide: ${this.mail.appOrigin}/#requests`
+    ].join("\n");
+    for (const { email } of recipients.rows) {
+      await this.mail.mailer.send({ to: email, subject: `New AI tool request: ${request.toolName}`, text })
+        .catch(error => console.warn(`New request email to ${email} failed`, error instanceof Error ? error.message : error));
+    }
   }
 
   async decide(actor: RequestActor, id: string, input: ToolRequestDecision): Promise<ToolRequest> {

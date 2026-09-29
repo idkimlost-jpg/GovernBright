@@ -29,6 +29,7 @@
 - **Shadow AI discovery:** import sign-in grant or expense CSVs to find AI tools already in use and add them to the register
 - **AI tool catalog:** shared list of common AI tools; vendor data-practice facts are loaded by the operator with `npm run catalog:import -- facts.json` and must cite a source and review date
 - **Slack and reminders:** request, decision and policy notifications, plus a daily digest of due reviews and waiting requests (`npm run reminders`; `node dist/scripts/send-reminders.js` in the container, scheduled once a day)
+- **Email to deciders:** each new AI tool request is emailed to the organization's active owners and admins (other than the requester), so requests are seen without Slack; needs `SMTP_URL`
 - **Seat provisioning:** approving a request creates the person's account in the tool over SCIM 2.0; deactivating a member disables it
 
 ### Configuration
@@ -99,5 +100,15 @@ Example body:
 3. Add update and retirement workflows with optimistic concurrency.
 4. Add invitations and membership administration.
 5. Add policy versions, controls, evidence metadata, and private file storage.
+
+## License
+
+GovernBright is source-available under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md) (FSL-1.1-ALv2).
+
+- You may read, run, modify and share the code for any purpose except a Competing Use: offering it, or something substantially similar, to others as a commercial product or service. Internal use, non-commercial education and research, and professional services for licensed users are permitted.
+- Each version becomes available under the Apache License 2.0 two years after it is released.
+- The license grants no right to use the GovernBright name or logos beyond identifying the software's origin.
+
+For commercial licensing, contact the licensor.
 
 No claim of compliance, security certification, or patentability is made by this source code.

@@ -8,6 +8,11 @@ import { initDiscovery, loadDiscovery } from "./js/discovery.js";
 import { initReports, loadReports } from "./js/reports.js";
 import { initTeam, loadTeam } from "./js/team.js";
 import { initSettings, loadSettings } from "./js/settings.js";
+import { initLanding, portal, showLanding, showShell } from "./js/landing.js";
+
+// Password-reset and SSO-error links open the sign-in card, not the landing page.
+// Read before initAuth, which strips these parameters from the URL.
+const openSignIn = ["reset", "sso_error"].some(name => new URLSearchParams(location.search).has(name));
 
 const loaders = { overview: loadOverview, requests: loadRequests, policy: loadPolicy, discovery: loadDiscovery, reports: loadReports, team: loadTeam, settings: loadSettings };
 const tabAllowed = (tab, role) => {
@@ -33,12 +38,14 @@ async function openTab(tab) {
 function showLogin({ keepStep = false } = {}) {
   stopLive();
   session.user = null;
+  showShell();
   toggle($("#login-view"), true); toggle($("#dashboard-view"), false);
   if (!keepStep) showStep("password");
 }
 
 async function showDashboard(user) {
   session.user = user;
+  showShell();
   toggle($("#login-view"), false); toggle($("#dashboard-view"), true);
   $("#organization-name").textContent = user.organizationName;
   $("#user-name").textContent = `${user.displayName} · ${user.role.replace("_", " ")}`;
@@ -47,22 +54,27 @@ async function showDashboard(user) {
   for (const element of $$(".decider-only")) toggle(element, can.approve(user.role));
   for (const option of $$(".owner-only")) { option.hidden = user.role !== "owner"; option.disabled = user.role !== "owner"; }
   toggle($("#mfa-required-banner"), !!user.mfaSetupRequired);
+  toggle($("#portal-notice"), portal() === "admin" && !can.manage(user.role));
   applyOverviewRole(user.role);
   if (!user.mfaSetupRequired) {
     await ensureCatalog().catch(() => {});
     startLive({ launchable: isLaunchable, onChange: () => { if ($("[data-tab].active")?.dataset.tab === "requests") loadRequests().catch(() => {}); } });
   }
-  await openTab(location.hash.slice(1) || "overview");
+  await openTab(location.hash.slice(1) || (portal() === "employee" ? "requests" : "overview"));
 }
 
 for (const button of $$("[data-tab]")) button.addEventListener("click", () => openTab(button.dataset.tab));
 $("#logout").addEventListener("click", async () => {
   try { await request("/api/v1/auth/logout", { method: "POST", body: {} }); }
   catch (error) { console.error("Sign-out request failed", error); }
-  showLogin();
+  session.user = null;
+  stopLive();
+  history.replaceState(null, "", "/");
+  showLanding();
 });
 
 initAuth({ onSignedIn: showDashboard });
+initLanding({ onChoose: () => showLogin() });
 initOverview();
 initRequests();
 initLive();
@@ -74,5 +86,5 @@ initSettings({ onMfaEnabled: async () => showDashboard((await request("/api/v1/a
 
 (async () => {
   try { await showDashboard((await request("/api/v1/auth/me")).user); }
-  catch { showLogin({ keepStep: true }); }
+  catch { if (openSignIn) showLogin({ keepStep: true }); else showLanding(); }
 })();
