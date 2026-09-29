@@ -24,9 +24,9 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 
 | Who | Work | Files | Pull request |
 |---|---|---|---|
-| Claude | Landing page demo video: narrated 1-minute demo in a "See it in action" section, served from `/media` with byte ranges | `public/index.html`, `public/styles.css`, `public/media/`, `src/http/routes.ts`, `src/app.test.ts` | this PR |
+| Claude | Home navigation: the logo and a Home button return to the home page; signed-in people go straight back to their workspace | `public/index.html`, `public/app.js`, `public/js/landing.js`, `public/styles.css` | this PR |
 
-Also merged: #10 (notes update), #11 (Render settings fixes), #12 (services section and contact form). Merged on 2026-09-29, in order: #9 (these notes), #4 (landing page), #5 (admin email on new requests), #6 (live request-to-launch demo). After merging, the full test suite (72 tests) and the two-browser demo passed on the combined code.
+Also merged: #10 (notes update), #11 (Render settings fixes), #12 (services section and contact form), #13 (demo video). Merged on 2026-09-29, in order: #9 (these notes), #4 (landing page), #5 (admin email on new requests), #6 (live request-to-launch demo). After merging, the full test suite (72 tests) and the two-browser demo passed on the combined code.
 
 The full-history credential scan was clean again after these merges (gitleaks 8.28.0, all branches). Public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
 

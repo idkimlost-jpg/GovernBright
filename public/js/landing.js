@@ -29,9 +29,8 @@ export function initLanding({ onChoose }) {
     remember(button.dataset.portal);
     $("#login-portal").textContent = labels[button.dataset.portal];
     onChoose();
-    $("#login-form [name=email]").focus();
+    if (!$("#login-view").classList.contains("hidden")) $("#login-form [name=email]").focus();
   });
-  $("#back-to-landing").addEventListener("click", showLanding);
   $("#contact-form").addEventListener("submit", guarded("#contact-error", async event => {
     const form = event.currentTarget;
     if (!form.reportValidity()) return;

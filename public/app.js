@@ -70,11 +70,29 @@ $("#logout").addEventListener("click", async () => {
   session.user = null;
   stopLive();
   history.replaceState(null, "", "/");
+  $("#nav-account").textContent = "Sign in";
   showLanding();
 });
 
 initAuth({ onSignedIn: showDashboard });
-initLanding({ onChoose: () => showLogin() });
+// Someone already signed in who picks a portal on the home page goes straight back to work.
+initLanding({ onChoose: () => session.user ? showDashboard(session.user) : showLogin() });
+
+// The logo and Home buttons return to the home page, or to its top when already there.
+// A signed-in person stays signed in; live alerts pause until they return to the workspace.
+function goHome() {
+  if (!$("#landing-view").classList.contains("hidden")) return window.scrollTo({ top: 0, behavior: "smooth" });
+  stopLive();
+  history.replaceState(null, "", "/");
+  $("#nav-account").textContent = session.user ? "My workspace" : "Sign in";
+  showLanding();
+}
+for (const link of $$("[data-home]")) link.addEventListener("click", event => { event.preventDefault(); goHome(); });
+$("#nav-account").addEventListener("click", event => {
+  if (!session.user) return;
+  event.preventDefault();
+  showDashboard(session.user);
+});
 initOverview();
 initRequests();
 initLive();
