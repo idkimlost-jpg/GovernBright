@@ -10,7 +10,8 @@ import { MemberService } from "./members.js";
 import { MfaService } from "./mfa.js";
 import { OrganizationService } from "./organization.js";
 import { PasswordResetService } from "./password-reset.js";
-import { SsoService } from "./sso.js";
+import { SsoService, type ResolveTxt } from "./sso.js";
+import { resolveTxt } from "node:dns/promises";
 import { PolicyService } from "./policies.js";
 import { AssessmentService } from "./assessments.js";
 import { ReportService } from "./reports.js";
@@ -21,7 +22,7 @@ import { OidcClient } from "../platform/oidc.js";
 import { Notifier } from "../platform/notifier.js";
 import { ToolRequestService } from "./tool-requests.js";
 
-export type Platform = { secrets: SecretBox; mailer: Mailer; fetch?: typeof fetch };
+export type Platform = { secrets: SecretBox; mailer: Mailer; fetch?: typeof fetch; resolveTxt?: ResolveTxt };
 
 export function createPlatform(config: Config): Platform {
   return {
@@ -51,6 +52,6 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),
     organization: new OrganizationService(pool, secrets, notifier),
-    sso: new SsoService(pool, secrets, auth, new OidcClient(config.NODE_ENV !== "production"), appOrigin(config))
+    sso: new SsoService(pool, secrets, auth, new OidcClient(config.NODE_ENV !== "production"), appOrigin(config), platform.resolveTxt ?? resolveTxt)
   };
 }

@@ -17,9 +17,14 @@ export async function loadSettings() {
   $("#sso-redirect").textContent = sso.redirectUri;
   const form = $("#sso-form"), c = sso.connection;
   form.elements.issuer.value = c?.issuer ?? ""; form.elements.clientId.value = c?.clientId ?? ""; form.elements.clientSecret.value = "";
-  form.elements.domains.value = c?.domains.join(", ") ?? ""; form.elements.enforce.checked = !!c?.enforce; form.elements.autoProvisionRole.value = c?.autoProvisionRole ?? "";
+  form.elements.domains.value = c?.domains.map(d => d.domain).join(", ") ?? ""; form.elements.enforce.checked = !!c?.enforce; form.elements.autoProvisionRole.value = c?.autoProvisionRole ?? "";
   form.elements.clientSecret.required = !c;
   toggle($("#sso-remove"), !!c);
+  toggle($("#sso-domains"), !!c?.domains.length);
+  $("#sso-domains-body").innerHTML = (c?.domains ?? []).map(d => `<tr><td><strong>${escapeHtml(d.domain)}</strong></td>
+    <td><span class="muted small-text">Name</span><br><code>${escapeHtml(d.txtName)}</code><br><span class="muted small-text">Value</span><br><code>${escapeHtml(d.txtValue)}</code></td>
+    <td>${d.verified ? badge("on", "verified") : badge("pending", "not verified")}</td>
+    <td>${d.verified ? "" : `<button class="small" data-verify-domain="${escapeHtml(d.domain)}">Verify</button>`}</td></tr>`).join("");
   $("#sso-state").innerHTML = c ? badge(c.enforce ? "enforced" : "on") : badge("off");
 
   $("#provisioning-tool").innerHTML = catalog.map(t => `<option value="${escapeHtml(t.key)}">${escapeHtml(t.name)}</option>`).join("");
@@ -63,6 +68,14 @@ export function initSettings({ onMfaEnabled }) {
       issuer: v.issuer, clientId: v.clientId, ...(v.clientSecret ? { clientSecret: v.clientSecret } : {}),
       domains: v.domains.split(/[\s,]+/).filter(Boolean), enforce: form.elements.enforce.checked, autoProvisionRole: v.autoProvisionRole || null
     } });
+    await loadSettings();
+  }));
+  $("#sso-domains-body").addEventListener("click", guarded("#sso-error", async event => {
+    const button = event.target.closest("[data-verify-domain]");
+    if (!button) return;
+    button.disabled = true;
+    try { await request(`/api/v1/sso/domains/${encodeURIComponent(button.dataset.verifyDomain)}/verify`, { method: "POST", body: {} }); }
+    finally { button.disabled = false; }
     await loadSettings();
   }));
   $("#sso-remove").addEventListener("click", guarded("#sso-error", async () => {

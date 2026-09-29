@@ -32,6 +32,16 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: password reset and MFA", 
     expect((await h.services.auth.login(member.email, newPassword)).kind).toBe("session");
   });
 
+  it("sends at most one reset email per account every two minutes", async () => {
+    const a = await h.organization("Reset throttle");
+    const member = await h.addMember(a.owner, "read_only");
+    const before = h.mailer.sent.length;
+    await h.services.passwordReset.request(member.email);
+    await h.services.passwordReset.request(member.email);
+    await h.services.passwordReset.request(member.email);
+    expect(h.mailer.sent.slice(before).filter(m => m.to === member.email)).toHaveLength(1);
+  });
+
   it("requires a second factor after enrollment, blocks code replay and accepts a recovery code once", async () => {
     const a = await h.organization("MFA");
     const member = await h.addMember(a.owner, "reviewer");

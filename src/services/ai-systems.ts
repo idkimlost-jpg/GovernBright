@@ -2,6 +2,7 @@ import type pg from "pg";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requirePermission } from "../domain/authorization.js";
+import { ConflictError } from "../domain/errors.js";
 import type { AiSystem, RequestActor } from "../domain/types.js";
 
 export const aiSystemInput = z.object({
@@ -36,6 +37,7 @@ export class AiSystemService {
 
   async create(actor: RequestActor, input: AiSystemInput): Promise<AiSystem> {
     requirePermission(actor, "ai_system:create");
+    if (input.status === "approved") requirePermission(actor, "ai_system:approve");
     const id = randomUUID();
     const client = await this.pool.connect();
     try {
@@ -52,12 +54,9 @@ export class AiSystemService {
       return result.rows[0]!;
     } catch (error) {
       await client.query("ROLLBACK");
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
-        const conflict = new Error("An AI system with this name already exists") as Error & { statusCode: number };
-        conflict.statusCode = 409;
-        throw conflict;
-      }
+      if ((error as { code?: string }).code === "23505") throw new ConflictError("An AI system with this name already exists");
       throw error;
     } finally { client.release(); }
   }
 }
+
