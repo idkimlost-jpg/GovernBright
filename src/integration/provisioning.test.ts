@@ -79,6 +79,9 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: SCIM seat provisioning", 
     await h.services.toolRequests.decide(a.owner, request.id, { decision: "approved", notes: "" });
     expect(await h.services.provisioning.accounts(a.owner)).toEqual([]);
     await expect(h.services.provisioning.saveConnection(a.owner, "gemini", { baseUrl: "http://scim.example.com/v2", token: "t" })).rejects.toMatchObject({ statusCode: 400 });
+    // Internal addresses are refused so an admin cannot aim the server at the private network.
+    await expect(h.services.provisioning.saveConnection(a.owner, "gemini", { baseUrl: "https://10.0.0.5/scim/v2", token: "t" })).rejects.toThrow(/internal/);
+    await expect(h.services.provisioning.saveConnection(a.owner, "gemini", { baseUrl: "https://169.254.169.254/latest", token: "t" })).rejects.toThrow(/internal/);
     await expect(h.services.provisioning.saveConnection(member.actor, "gemini", { baseUrl: "https://scim.example.com/v2", token: "t" })).rejects.toMatchObject({ statusCode: 403 });
   });
 });
