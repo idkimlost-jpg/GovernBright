@@ -12,6 +12,7 @@ import type { CatalogService } from "../services/catalog.js";
 import type { DiscoveryService } from "../services/discovery.js";
 import type { ProvisioningService } from "../services/provisioning.js";
 import type { ToolRequestService } from "../services/tool-requests.js";
+import type { ContactService } from "../services/contact.js";
 
 export type Services = {
   aiSystems: AiSystemService;
@@ -28,4 +29,5 @@ export type Services = {
   catalog: CatalogService;
   discovery: DiscoveryService;
   provisioning: ProvisioningService;
+  contact: ContactService;
 };

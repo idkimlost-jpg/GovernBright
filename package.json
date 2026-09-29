@@ -14,7 +14,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "admin:create": "tsx src/scripts/create-admin.ts",
     "reminders": "tsx src/scripts/send-reminders.ts",
-    "catalog:import": "tsx src/scripts/import-catalog.ts"
+    "catalog:import": "tsx src/scripts/import-catalog.ts",
+    "contacts": "tsx src/scripts/list-contacts.ts"
   },
   "engines": {
     "node": ">=22"

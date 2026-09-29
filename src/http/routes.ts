@@ -8,6 +8,7 @@ import { resolveActor } from "./auth.js";
 import { memberInput, memberUpdate } from "../services/members.js";
 import { toolRequestDecision, toolRequestInput } from "../services/tool-requests.js";
 import { organizationSettingsInput } from "../services/organization.js";
+import { contactInput } from "../services/contact.js";
 import { registerAuthRoutes } from "./auth-routes.js";
 import { registerSsoRoutes } from "./sso-routes.js";
 import { registerGovernanceRoutes } from "./governance-routes.js";
@@ -25,6 +26,12 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
   const { aiSystems: service, auth, toolRequests, members } = services;
   const actor = (request: FastifyRequest) => resolveActor(request, config, auth);
   app.get("/health", async () => ({ status: "ok" }));
+  // Public contact form on the landing page; no sign-in, so it gets its own tight rate limit.
+  app.post("/api/v1/contact", { config: { rateLimit: { max: 5, timeWindow: "10 minutes" } } }, async (request, reply) => {
+    requireSameOrigin(request, config);
+    await services.contact.submit(contactInput.parse(request.body));
+    return reply.code(204).send();
+  });
   app.get("/", async (_request, reply) => reply.type("text/html; charset=utf-8").send(await readFile(assets.html)));
   app.get("/app.js", async (_request, reply) => reply.type("application/javascript; charset=utf-8").send(await readFile(assets.js)));
   app.get("/styles.css", async (_request, reply) => reply.type("text/css; charset=utf-8").send(await readFile(assets.css)));

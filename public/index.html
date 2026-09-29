@@ -10,7 +10,7 @@
   <div id="landing-view" class="landing hidden">
     <header class="landing-nav">
       <div class="brand"><span class="mark">G</span><span>GovernBright</span></div>
-      <nav aria-label="Page"><a href="#mission">Mission</a><a href="#portals">Sign in</a></nav>
+      <nav aria-label="Page"><a href="#services" class="wide-only">What we do</a><a href="#mission" class="wide-only">Mission</a><a href="#contact">Contact</a><a href="#portals">Sign in</a></nav>
     </header>
 
     <section class="hero">
@@ -44,6 +44,19 @@
       </div>
     </section>
 
+    <section id="services" class="services">
+      <p class="eyebrow">What GovernBright does for your company</p>
+      <h2>Say yes to AI with confidence, and prove you did it responsibly.</h2>
+      <div class="service-grid">
+        <article><h3>See every AI tool in use</h3><p>Keep one register of the AI systems your company relies on, and import sign-in or expense exports to uncover the tools people already use.</p></article>
+        <article><h3>Approve tools in minutes, not weeks</h3><p>Employees request a tool with its purpose and the data involved. Admins get a live alert, approve in one click, and employees launch the approved tool from GovernBright.</p></article>
+        <article><h3>An AI policy people actually accept</h3><p>Publish a versioned AI use policy and see who has signed it. Requests wait until the current policy is accepted.</p></article>
+        <article><h3>Risk reviews mapped to regulations</h3><p>A scored risk questionnaire whose required controls cite the EU AI Act, NIST AI RMF, GDPR and ISO/IEC 42001 (an indicative mapping, not legal advice).</p></article>
+        <article><h3>Evidence on demand</h3><p>An append-only audit log, CSV export and a printable evidence report for auditors, customers and your board.</p></article>
+        <article><h3>Fits the tools you already use</h3><p>Single sign-on with Google Workspace, Microsoft Entra ID or Okta, automatic seat provisioning over SCIM, and Slack and email alerts.</p></article>
+      </div>
+    </section>
+
     <section id="mission" class="mission">
       <div class="mission-intro">
         <p class="eyebrow">Our mission</p>
@@ -57,6 +70,24 @@
         <article><h3>People first</h3><p>A clear yes-or-no in place of quiet workarounds: employees ask, admins decide, and approved seats are provisioned automatically.</p></article>
       </div>
       <p class="fine-print">Framework mappings are indicative and are not legal advice.</p>
+    </section>
+
+    <section id="contact" class="contact">
+      <div class="contact-intro">
+        <p class="eyebrow">Contact us</p>
+        <h2>See GovernBright with your own team.</h2>
+        <p>Tell us how your company uses AI today and what worries you about it. We'll walk you through GovernBright and answer your questions.</p>
+        <p>Prefer email? Write to <a href="mailto:governbright@gmail.com">governbright@gmail.com</a>.</p>
+      </div>
+      <form id="contact-form" class="contact-form" novalidate>
+        <div class="form-row"><label>Name<input name="name" maxlength="200" autocomplete="name" required></label><label>Work email<input name="email" type="email" maxlength="320" autocomplete="email" required></label></div>
+        <label>Company<input name="company" maxlength="200" autocomplete="organization"></label>
+        <label>How can we help?<textarea name="message" maxlength="5000" required placeholder="For example: we have 200 people using ChatGPT and need an approval process."></textarea></label>
+        <label class="trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+        <button type="submit">Send message</button>
+        <p id="contact-status" class="notice hidden" role="status"></p>
+        <p id="contact-error" class="error" role="alert"></p>
+      </form>
     </section>
 
     <footer class="landing-footer"><span>© GovernBright</span><span>Organization-scoped access · append-only audit records</span></footer>
