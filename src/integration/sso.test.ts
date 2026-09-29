@@ -49,7 +49,10 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: single sign-on", () => {
   async function setUp(options: { autoProvisionRole?: string | null; enforce?: boolean } = {}) {
     const a = await h.organization("SSO");
     const domain = `sso-${randomUUID().slice(0, 8)}.test`;
-    await h.services.sso.saveConnection(a.owner, { issuer: idp.issuer(), clientId: "gb-client", clientSecret: "idp-secret", domains: [domain], enforce: options.enforce ?? false, autoProvisionRole: (options.autoProvisionRole ?? null) as never });
+    const saved = await h.services.sso.saveConnection(a.owner, { issuer: idp.issuer(), clientId: "gb-client", clientSecret: "idp-secret", domains: [domain], enforce: options.enforce ?? false, autoProvisionRole: (options.autoProvisionRole ?? null) as never });
+    const record = saved.domains[0]!;
+    h.dns.set(record.txtName, [[record.txtValue]]);
+    await h.services.sso.verifyDomain(a.owner, domain);
     return { ...a, domain };
   }
   async function start(email: string) {
@@ -122,12 +125,52 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: single sign-on", () => {
     expect((await h.services.auth.login(a.ownerEmail, password)).kind).toBe("session");
   });
 
-  it("keeps each email domain with a single organization and never returns the client secret", async () => {
+  it("keeps a verified domain with one organization and never returns the client secret", async () => {
     const a = await setUp();
     const b = await h.organization("Other");
     await expect(h.services.sso.saveConnection(b.owner, { issuer: idp.issuer(), clientId: "x", clientSecret: "y", domains: [a.domain], enforce: false, autoProvisionRole: null })).rejects.toMatchObject({ statusCode: 409 });
     const connection = await h.services.sso.getConnection(a.owner);
     expect(JSON.stringify(connection)).not.toContain("idp-secret");
-    expect(connection).toMatchObject({ domains: [a.domain], redirectUri: "http://localhost:3000/api/v1/auth/sso/callback" });
+    expect(connection).toMatchObject({ domains: [{ domain: a.domain, verified: true }], redirectUri: "http://localhost:3000/api/v1/auth/sso/callback" });
+  });
+
+  it("does not route or enforce an unverified domain, so squatting cannot hijack or block it", async () => {
+    const domain = `claimed-${randomUUID().slice(0, 8)}.test`;
+    const squatter = await h.organization("Squatter"), owner = await h.organization("Real owner");
+    const victim = `vic@${domain}`;
+    await h.services.members.add(owner.owner, { email: victim, displayName: "Vic", role: "contributor", password });
+    // The squatter claims the domain and enforces SSO but cannot publish the DNS record.
+    await h.services.sso.saveConnection(squatter.owner, { issuer: idp.issuer(), clientId: "gb-client", clientSecret: "idp-secret", domains: [domain], enforce: true, autoProvisionRole: "read_only" });
+    await expect(h.services.sso.verifyDomain(squatter.owner, domain)).rejects.toMatchObject({ statusCode: 400 });
+    await expect(h.services.sso.start(victim)).rejects.toMatchObject({ statusCode: 404 });
+    expect((await h.services.auth.login(victim, password)).kind).toBe("session");
+
+    // The real owner can still claim and verify it; the squatter is then locked out of verifying.
+    const saved = await h.services.sso.saveConnection(owner.owner, { issuer: idp.issuer(), clientId: "gb-client", clientSecret: "idp-secret", domains: [domain], enforce: false, autoProvisionRole: null });
+    h.dns.set(saved.domains[0]!.txtName, [[saved.domains[0]!.txtValue]]);
+    await h.services.sso.verifyDomain(owner.owner, domain);
+    const squatterRecord = (await h.services.sso.getConnection(squatter.owner))!.domains[0]!;
+    h.dns.set(squatterRecord.txtName, [[squatterRecord.txtValue]]);
+    await expect(h.services.sso.verifyDomain(squatter.owner, domain)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("never echoes free text from the callback URL", async () => {
+    const response = await app.inject({ method: "GET", url: "/api/v1/auth/sso/callback?error=access_denied&error_description=Call%20555-0100%20to%20unlock" });
+    expect(decodeURIComponent(response.body)).toContain("declined the sign-in (access_denied)");
+    expect(decodeURIComponent(response.body)).not.toContain("555-0100");
+  });
+
+  it("refuses identity providers on internal network addresses", async () => {
+    const a = await h.organization("SSRF");
+    await expect(h.services.sso.saveConnection(a.owner, { issuer: "https://169.254.169.254", clientId: "x", clientSecret: "y", domains: ["ssrf.test"], enforce: false, autoProvisionRole: null }))
+      .rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("internal") });
+  });
+
+  it("only enforces SSO for members of the organization that enforces it", async () => {
+    const enforcing = await setUp({ enforce: true });
+    const other = await h.organization("Unrelated");
+    const outsider = `out@${enforcing.domain}`;
+    await h.services.members.add(other.owner, { email: outsider, displayName: "Out", role: "contributor", password });
+    expect((await h.services.auth.login(outsider, password)).kind).toBe("session");
   });
 });
