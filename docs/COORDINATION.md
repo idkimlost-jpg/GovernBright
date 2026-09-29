@@ -18,19 +18,17 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 | 2026-09-29 | Focus: one polished buyer demo — employee request → live admin popup → approval → ChatGPT launch → audit record. Don't expand the compliance dashboard until buyers have seen it. | #6 |
 | 2026-09-29 | Hosting: Render with managed PostgreSQL. Email: Postmark. | Waiting on accounts and API keys from the owner |
 | 2026-09-29 | Anything that changes state or writes an audit event is a same-origin `POST` (or `PATCH`/`PUT`/`DELETE`), never a `GET`. Link prefetching and scanners fetch GETs and would create false audit events. Launching an approved tool follows this: `POST /api/v1/tool-requests/:id/launch`. | Found by ChatGPT in #6; fixed in #6 |
-| 2026-09-29 | GovernBright is described as **source-available**, not open source. The repository stays private until the application pull requests are merged and a final credential scan of `main` is clean. | Owner |
+| 2026-09-29 | GovernBright is described as **source-available**, not open source. The repository went public on 2026-09-29, after the application pull requests were merged and the credential scan was clean. | Owner |
 
 ## In progress
 
 | Who | Work | Files | Pull request |
 |---|---|---|---|
-| — | Nothing in progress. Add a row before starting work. | | |
+| Claude | Render deploy fixes: `APP_ORIGIN` defaults to `RENDER_EXTERNAL_URL`, pasted quotes are ignored, settings errors say how to fix them | `src/config.ts`, `src/config.test.ts`, `README.md` | this PR |
 
 Merged on 2026-09-29, in order: #9 (these notes), #4 (landing page), #5 (admin email on new requests), #6 (live request-to-launch demo). After merging, the full test suite (72 tests) and the two-browser demo passed on the combined code.
 
-Remaining before the repository goes public: the owner deletes the merged and superseded branches, then changes the visibility.
-
-The full-history credential scan was clean again after these merges (gitleaks 8.28.0, all branches). It becomes public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
+The full-history credential scan was clean again after these merges (gitleaks 8.28.0, all branches). Public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
 
 ## Known issues not yet assigned
 

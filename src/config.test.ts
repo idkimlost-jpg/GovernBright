@@ -25,6 +25,25 @@ describe("configuration", () => {
     expect(() => loadConfig({ ...base, ...production, ALLOW_DEV_AUTH: "true" })).toThrow(/ALLOW_DEV_AUTH/);
   });
 
+  it("uses Render's public address when APP_ORIGIN is not set", () => {
+    const { APP_ORIGIN: _origin, ...rest } = production;
+    expect(loadConfig({ ...base, ...rest, RENDER_EXTERNAL_URL: "https://governbright.onrender.com" }).APP_ORIGIN).toBe("https://governbright.onrender.com");
+    expect(loadConfig({ ...base, ...production, RENDER_EXTERNAL_URL: "https://governbright.onrender.com" }).APP_ORIGIN).toBe("https://app.example.test");
+  });
+
+  it("ignores quotes and spaces pasted around values", () => {
+    const config = loadConfig({ DATABASE_URL: ' "postgresql://user:pw@dpg-abc-a/governbright" ', ...production, APP_ORIGIN: "'https://app.example.test'", APP_ENCRYPTION_KEY: `"${production.APP_ENCRYPTION_KEY}"` });
+    expect(config.DATABASE_URL).toBe("postgresql://user:pw@dpg-abc-a/governbright");
+    expect(config.APP_ORIGIN).toBe("https://app.example.test");
+    expect(config.APP_ENCRYPTION_KEY).toBe(production.APP_ENCRYPTION_KEY);
+  });
+
+  it("explains how to fix common mistakes", () => {
+    expect(() => loadConfig({ ...base, ...production, APP_ORIGIN: "governbright.onrender.com" })).toThrow(/starting with https:\/\//);
+    expect(() => loadConfig({ ...base, ...production, APP_ENCRYPTION_KEY: "a".repeat(64) })).toThrow(/openssl rand -base64 32/);
+    expect(() => loadConfig({ ...production, DATABASE_URL: "DATABASE_URL=postgres://x/y" })).toThrow(/postgresql:\/\/user:password@host/);
+  });
+
   it("accepts a complete production configuration", () => {
     expect(loadConfig({ ...base, ...production }).ALLOW_DEV_AUTH).toBe(false);
   });
