@@ -2,6 +2,7 @@
   "name": "governbright",
   "version": "0.2.0",
   "private": true,
+  "license": "FSL-1.1-ALv2",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
