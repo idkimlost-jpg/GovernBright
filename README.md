@@ -40,7 +40,7 @@
 | `SMTP_URL`, `MAIL_FROM` | Outgoing mail for password resets and reminders. Without SMTP, mail is printed to the log in development and dropped in production. |
 | `POSTGRES_PASSWORD` | Database password for `docker compose` (letters and digits); use the same value in `DATABASE_URL`. Compose publishes Postgres on `127.0.0.1` only. |
 | `TRUST_PROXY` | Set behind a load balancer or reverse proxy (`true`, a hop count such as `1`, or proxy addresses) so rate limits see real client addresses. |
-| `APP_ORIGIN` | Public URL; used for links in emails and Slack, and the SSO redirect URI (`<APP_ORIGIN>/api/v1/auth/sso/callback`). |
+| `APP_ORIGIN` | Public URL; used for links in emails and Slack, and the SSO redirect URI (`<APP_ORIGIN>/api/v1/auth/sso/callback`). On Render it defaults to the service's `RENDER_EXTERNAL_URL`; set it when you add a custom domain. |
 
 ## Important security state
 
