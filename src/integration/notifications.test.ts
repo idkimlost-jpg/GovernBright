@@ -60,4 +60,23 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: Slack notifications and r
     await reminders.send();
     expect(h.mailer.sent.filter(m => m.subject.includes(digest.organization))).toHaveLength(2);
   });
+
+  it("emails active owners and admins, but not the requester, about a new request", async () => {
+    const a = await h.organization("Request email");
+    const admin = await h.addMember(a.owner, "admin");
+    const former = await h.addMember(a.owner, "admin");
+    const member = await h.addMember(a.owner, "contributor");
+    await h.services.members.update(a.owner, former.actor.userId, { active: false });
+    const recipientsOf = (tool: string) => h.mailer.sent.filter(m => m.subject === `New AI tool request: ${tool}`).map(m => m.to).sort();
+
+    await h.services.toolRequests.create(member.actor, { toolName: "Claude", businessPurpose: "Summarize research", dataDescription: "Public papers" });
+    await vi.waitFor(() => expect(recipientsOf("Claude")).toEqual([a.ownerEmail, admin.email].sort()));
+    const mail = h.mailer.sent.find(m => m.subject === "New AI tool request: Claude" && m.to === admin.email)!;
+    expect(mail.text).toContain("Purpose: Summarize research");
+    expect(mail.text).toContain("Data involved: Public papers");
+    expect(mail.text).toContain("http://localhost:3000/#requests");
+
+    await h.services.toolRequests.create(admin.actor, { toolName: "Gemini", businessPurpose: "Drafting", dataDescription: "" });
+    await vi.waitFor(() => expect(recipientsOf("Gemini")).toEqual([a.ownerEmail]));
+  });
 });
