@@ -7,21 +7,18 @@ const schema = z.object({
   ALLOW_DEV_AUTH: z.enum(["true", "false"]).default("false").transform(v => v === "true"),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
   APP_ORIGIN: z.string().url().optional(),
-  TRUST_PROXY: z.string().default("false").transform(value => value === "true" ? true : value === "false" ? false : value)
-}).superRefine((config, context) => {
-  if (config.NODE_ENV === "production" && !config.APP_ORIGIN) {
-    context.addIssue({ code: "custom", path: ["APP_ORIGIN"], message: "APP_ORIGIN is required in production" });
-  }
-  if (config.ALLOW_DEV_AUTH) {
-    if (!config.APP_ORIGIN) {
-      context.addIssue({ code: "custom", path: ["ALLOW_DEV_AUTH"], message: "Development authentication requires a localhost APP_ORIGIN" });
-      return;
-    }
-    const hostname = new URL(config.APP_ORIGIN).hostname;
-    if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
-      context.addIssue({ code: "custom", path: ["ALLOW_DEV_AUTH"], message: "Development authentication is only allowed on localhost" });
-    }
-  }
+  // 32 random bytes, base64 encoded (openssl rand -base64 32). Encrypts stored integration secrets.
+  APP_ENCRYPTION_KEY: z.string().refine(v => Buffer.from(v, "base64").length === 32, "APP_ENCRYPTION_KEY must be 32 bytes, base64 encoded").optional(),
+  SMTP_URL: z.string().url().optional(),
+  // Set when running behind a load balancer or reverse proxy so rate limits and logs see the real
+  // client address: "true" (trust all), a hop count like "1", or comma-separated proxy addresses.
+  TRUST_PROXY: z.string().optional().transform(v => v === undefined || v === "" || v === "false" ? false : v === "true" ? true : /^\d+$/.test(v) ? Number(v) : v),
+  MAIL_FROM: z.string().min(3).default("GovernBright <no-reply@governbright.local>")
+}).superRefine((config, ctx) => {
+  if (config.NODE_ENV !== "production") return;
+  if (!config.APP_ORIGIN) ctx.addIssue({ code: "custom", path: ["APP_ORIGIN"], message: "APP_ORIGIN is required in production" });
+  if (!config.APP_ENCRYPTION_KEY) ctx.addIssue({ code: "custom", path: ["APP_ENCRYPTION_KEY"], message: "APP_ENCRYPTION_KEY is required in production" });
+  if (config.ALLOW_DEV_AUTH) ctx.addIssue({ code: "custom", path: ["ALLOW_DEV_AUTH"], message: "ALLOW_DEV_AUTH must be false in production" });
 });
 
 export type Config = z.infer<typeof schema>;
