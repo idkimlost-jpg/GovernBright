@@ -41,7 +41,7 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
   return {
     auth,
     aiSystems: new AiSystemService(pool),
-    toolRequests: new ToolRequestService(pool, policies, notifier, provisioning),
+    toolRequests: new ToolRequestService(pool, policies, notifier, provisioning, { mailer, appOrigin: appOrigin(config) }),
     provisioning,
     policies,
     assessments: new AssessmentService(pool),
