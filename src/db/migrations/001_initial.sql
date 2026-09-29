@@ -46,7 +46,7 @@ CREATE INDEX ai_systems_organization_idx ON ai_systems (organization_id, updated
 CREATE TABLE audit_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
-  actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  actor_user_id uuid REFERENCES users(id) ON DELETE RESTRICT,
   action text NOT NULL,
   target_type text NOT NULL,
   target_id uuid,
@@ -63,4 +63,3 @@ BEGIN
 END $$;
 CREATE TRIGGER audit_events_no_update BEFORE UPDATE OR DELETE ON audit_events
 FOR EACH ROW EXECUTE FUNCTION prevent_audit_mutation();
-
