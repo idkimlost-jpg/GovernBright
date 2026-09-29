@@ -13,7 +13,7 @@ const CLOCK_SKEW_SECONDS = 120;
 
 async function fetchJson<T>(url: string, init: RequestInit | undefined, allowLoopback: boolean): Promise<T> {
   await assertPublicUrl(url, { allowLoopback }).catch(error => { throw Object.assign(new OidcError(error.message), { statusCode: 400 }); });
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const response = await fetch(url, { ...init, redirect: "error", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   const body = await response.json().catch(() => null) as T | null;
   if (!response.ok || !body) throw new OidcError(`Identity provider request failed (${response.status}) for ${new URL(url).host}`);
   return body;
