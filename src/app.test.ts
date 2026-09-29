@@ -27,6 +27,25 @@ describe("authenticated application", () => {
     await app.close();
   });
 
+  it("serves landing-page media in byte ranges and only from public/media", async () => {
+    const app = await buildApp(config, { aiSystems: {}, auth: {}, toolRequests: {}, members: {} } as never);
+    const whole = await app.inject({ method: "GET", url: "/media/governbright-demo.mp4" });
+    expect(whole.statusCode).toBe(200);
+    expect(whole.headers["content-type"]).toBe("video/mp4");
+    expect(whole.headers["accept-ranges"]).toBe("bytes");
+    const size = Number(whole.headers["content-length"]);
+    const part = await app.inject({ method: "GET", url: "/media/governbright-demo.mp4", headers: { range: "bytes=100-199" } });
+    expect(part.statusCode).toBe(206);
+    expect(part.headers["content-range"]).toBe(`bytes 100-199/${size}`);
+    expect(part.rawPayload).toHaveLength(100);
+    expect(part.rawPayload).toEqual(whole.rawPayload.subarray(100, 200));
+    expect((await app.inject({ method: "GET", url: "/media/governbright-demo.mp4", headers: { range: `bytes=${size}-` } })).statusCode).toBe(416);
+    expect((await app.inject({ method: "GET", url: "/media/governbright-demo-poster.jpg" })).headers["content-type"]).toBe("image/jpeg");
+    expect((await app.inject({ method: "GET", url: "/media/missing.mp4" })).statusCode).toBe(404);
+    expect((await app.inject({ method: "GET", url: "/media/..%2Fpackage.json" })).statusCode).toBe(400);
+    await app.close();
+  });
+
   it("blocks a state-changing request from the wrong origin", async () => {
     const app = await buildApp(config, { aiSystems: {}, auth: {}, toolRequests: {}, members: {} } as never);
     const response = await app.inject({ method: "POST", url: "/api/v1/auth/login", headers: { origin: "https://evil.example" }, payload: { email: user.email, password: "a-secure-password" } });
