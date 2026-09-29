@@ -4,9 +4,10 @@ services:
     environment:
       POSTGRES_DB: governbright
       POSTGRES_USER: governbright
-      POSTGRES_PASSWORD: governbright
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD to a long random value}
+    # Reachable from this machine only (for local tools and npm run dev), never from the network.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - governbright_db:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +20,7 @@ services:
     command: ["node", "dist/db/migrate.js"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://governbright:governbright@db:5432/governbright
+      DATABASE_URL: postgres://governbright:${POSTGRES_PASSWORD}@db:5432/governbright
       APP_ORIGIN: http://localhost:3000
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?Set APP_ENCRYPTION_KEY (openssl rand -base64 32)}
     depends_on:
@@ -30,7 +31,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgres://governbright:governbright@db:5432/governbright
+      DATABASE_URL: postgres://governbright:${POSTGRES_PASSWORD}@db:5432/governbright
       ALLOW_DEV_AUTH: "false"
       APP_ORIGIN: http://localhost:3000
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?Set APP_ENCRYPTION_KEY (openssl rand -base64 32)}

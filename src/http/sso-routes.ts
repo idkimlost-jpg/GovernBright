@@ -7,7 +7,8 @@ import type { Services } from "./context.js";
 import { requireSameOrigin, sessionCookie } from "./shared.js";
 
 const STATE_COOKIE = "gb_sso_state";
-const callbackQuery = z.object({ code: z.string().max(4000).optional(), state: z.string().max(200).optional(), error: z.string().max(200).optional(), error_description: z.string().max(1000).optional() });
+// error_description is ignored: anyone can put text in this URL, so only a short error code is shown.
+const callbackQuery = z.object({ code: z.string().max(4000).optional(), state: z.string().max(200).optional(), error: z.string().max(200).optional() }).loose();
 
 // The callback answers with a same-site page that navigates home, so the browser sends the
 // new SameSite=Strict session cookie (it would not on a redirect chain started by the IdP).
@@ -34,7 +35,7 @@ export async function registerSsoRoutes(app: FastifyInstance, config: Config, se
     const query = callbackQuery.parse(request.query);
     reply.clearCookie(STATE_COOKIE, { path: stateCookie.path });
     const fail = (message: string) => landing(reply, `/?sso_error=${encodeURIComponent(message)}`);
-    if (query.error) return fail(query.error_description || query.error);
+    if (query.error) return fail(/^[a-z_]{1,60}$/.test(query.error) ? `Your identity provider declined the sign-in (${query.error})` : "Your identity provider declined the sign-in");
     // The state must match the cookie set when this browser started the sign-in (login CSRF protection).
     if (!query.code || !query.state || request.cookies[STATE_COOKIE] !== query.state) return fail("This sign-in could not be verified; start again");
     try {
@@ -51,6 +52,11 @@ export async function registerSsoRoutes(app: FastifyInstance, config: Config, se
   app.put("/api/v1/sso", async request => {
     requireSameOrigin(request, config);
     return { connection: await sso.saveConnection(await actor(request), ssoConnectionInput.parse(request.body)) };
+  });
+  app.post("/api/v1/sso/domains/:domain/verify", async request => {
+    requireSameOrigin(request, config);
+    const { domain } = z.object({ domain: z.string().toLowerCase().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/) }).parse(request.params);
+    return { connection: await sso.verifyDomain(await actor(request), domain) };
   });
   app.delete("/api/v1/sso", async (request, reply) => {
     requireSameOrigin(request, config);

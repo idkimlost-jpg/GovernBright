@@ -9,14 +9,17 @@ export type CatalogEntry = {
 export type Matcher = { key: string; name: string; domains: string[]; keywords: string[] };
 
 // Operator-supplied vendor facts. Every fact needs a source and review date so customers can check it.
+// Links are shown to customers, so only https URLs are accepted (no javascript: or data: links).
+const httpsUrl = z.url().refine(v => v.startsWith("https://"), "Use an https:// URL");
+
 export const catalogFacts = z.array(z.object({
   key: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-  name: z.string().min(1).max(120), vendor: z.string().min(1).max(120), category: z.string().min(1).max(60), website: z.url(),
+  name: z.string().min(1).max(120), vendor: z.string().min(1).max(120), category: z.string().min(1).max(60), website: httpsUrl,
   matchDomains: z.array(z.string()).default([]), matchKeywords: z.array(z.string()).default([]),
   trainsOnCustomerData: z.enum(["no", "yes", "opt_out", "plan_dependent"]).nullable().default(null),
   dataRetention: z.string().max(500).nullable().default(null), dataResidency: z.string().max(500).nullable().default(null),
   certifications: z.array(z.string().max(60)).nullable().default(null), enterpriseControls: z.string().max(1000).nullable().default(null),
-  notes: z.string().max(2000).nullable().default(null), sourceUrl: z.url().nullable().default(null), reviewedAt: z.iso.date().nullable().default(null)
+  notes: z.string().max(2000).nullable().default(null), sourceUrl: httpsUrl.nullable().default(null), reviewedAt: z.iso.date().nullable().default(null)
 }).refine(f => f.trainsOnCustomerData === null || (f.sourceUrl && f.reviewedAt), "Reviewed facts need sourceUrl and reviewedAt"));
 
 const fields = `key, name, vendor, category, website, trains_on_customer_data AS "trainsOnCustomerData", data_retention AS "dataRetention",

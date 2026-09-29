@@ -10,7 +10,7 @@ export class ScimClient {
 
   private async call(method: string, path: string, body?: unknown): Promise<{ status: number; json: Record<string, unknown> | null }> {
     const response = await this.fetchImpl(`${this.baseUrl.replace(/\/$/, "")}${path}`, {
-      method, signal: AbortSignal.timeout(10_000),
+      method, redirect: "error", signal: AbortSignal.timeout(10_000),
       headers: { authorization: `Bearer ${this.token}`, accept: "application/scim+json, application/json", ...(body ? { "content-type": "application/scim+json" } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {})
     });

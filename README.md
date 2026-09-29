@@ -21,7 +21,7 @@
 
 ## Added in v0.3
 
-- **Sign-in:** password reset by email, two-factor authentication (authenticator apps, recovery codes, optional org-wide requirement), and company single sign-on over OpenID Connect (Google Workspace, Microsoft Entra ID, Okta) with optional auto-provisioning and enforcement
+- **Sign-in:** password reset by email, two-factor authentication (authenticator apps, recovery codes, optional org-wide requirement), and company single sign-on over OpenID Connect (Google Workspace, Microsoft Entra ID, Okta) with optional auto-provisioning and enforcement; domains must be verified with a DNS TXT record first
 - **AI tool requests:** employees request tools, owners and admins approve or reject; requests require acceptance of the current AI use policy
 - **AI use policy:** versioned policies, per-person sign-off and acceptance tracking
 - **Risk assessments:** a scored questionnaire whose required controls cite the EU AI Act, NIST AI RMF, GDPR and ISO/IEC 42001 clauses they support (an indicative mapping, not legal advice)
@@ -37,6 +37,8 @@
 | --- | --- |
 | `APP_ENCRYPTION_KEY` | 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts MFA seeds, SSO client secrets, Slack webhooks and SCIM tokens. Required in production; keep it stable, since changing it makes stored secrets unreadable. |
 | `SMTP_URL`, `MAIL_FROM` | Outgoing mail for password resets and reminders. Without SMTP, mail is printed to the log in development and dropped in production. |
+| `POSTGRES_PASSWORD` | Database password for `docker compose` (letters and digits); use the same value in `DATABASE_URL`. Compose publishes Postgres on `127.0.0.1` only. |
+| `TRUST_PROXY` | Set behind a load balancer or reverse proxy (`true`, a hop count such as `1`, or proxy addresses) so rate limits see real client addresses. |
 | `APP_ORIGIN` | Public URL; used for links in emails and Slack, and the SSO redirect URI (`<APP_ORIGIN>/api/v1/auth/sso/callback`). |
 
 ## Important security state
@@ -45,7 +47,7 @@ The application now has database-backed authentication and membership resolution
 
 ## Local setup
 
-1. Copy `.env.example` to `.env`.
+1. Copy `.env.example` to `.env` and replace the placeholder database password (in both places) and set `APP_ENCRYPTION_KEY`.
 2. Start PostgreSQL with `docker compose up -d db`.
 3. Run `npm install`.
 4. Run `npm run db:migrate`.

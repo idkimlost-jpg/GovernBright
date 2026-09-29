@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import { useEffect,useMemo,useState,type FormEvent } from "react";
 import { Bell,Plus,ShieldCheck,X } from "lucide-react";
 type Assessment={score:number;calculatedTier:string;decision:string;requiredControls:string|Array<string>;completedAt:string};

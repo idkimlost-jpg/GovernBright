@@ -16,13 +16,15 @@ export const password = "integration-password-2026";
 
 export const testConfig = (): Config => ({
   NODE_ENV: "test", PORT: 3000, DATABASE_URL: databaseUrl!, ALLOW_DEV_AUTH: false, SESSION_TTL_HOURS: 1,
-  APP_ORIGIN: "http://localhost:3000", APP_ENCRYPTION_KEY: randomBytes(32).toString("base64"), MAIL_FROM: "test@example.test"
+  APP_ORIGIN: "http://localhost:3000", APP_ENCRYPTION_KEY: randomBytes(32).toString("base64"), MAIL_FROM: "test@example.test", TRUST_PROXY: false
 });
 
 export type Harness = {
   pool: pg.Pool; config: Config; services: Services; mailer: MemoryMailer; secrets: SecretBox;
   // Outbound HTTP calls made through the injected fetch (Slack, SCIM).
   outbound: Array<{ url: string; method: string; body: unknown }>;
+  // DNS TXT records visible to domain verification.
+  dns: Map<string, string[][]>;
   organization(name: string): Promise<{ organizationId: string; owner: RequestActor; ownerEmail: string }>;
   addMember(owner: RequestActor, role: Role): Promise<{ email: string; actor: RequestActor }>;
   close(): Promise<void>;
@@ -41,9 +43,10 @@ export function createHarness(): Harness {
     outbound.push({ url: String(url), method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : undefined });
     return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
-  const services = createServices(config, pool, { mailer, secrets, fetch: fakeFetch });
+  const dns = new Map<string, string[][]>();
+  const services = createServices(config, pool, { mailer, secrets, fetch: fakeFetch, resolveTxt: async name => dns.get(name) ?? [] });
   return {
-    pool, config, services, mailer, secrets, outbound,
+    pool, config, services, mailer, secrets, outbound, dns,
     async organization(name) {
       const organizationId = randomUUID(), userId = randomUUID(), email = `owner-${userId}@example.test`;
       await pool.query("INSERT INTO organizations (id, name) VALUES ($1,$2)", [organizationId, `${name} ${organizationId.slice(0, 8)}`]);

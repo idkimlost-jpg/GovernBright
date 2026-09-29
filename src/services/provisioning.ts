@@ -5,6 +5,7 @@ import { NotFoundError } from "../domain/errors.js";
 import type { RequestActor } from "../domain/types.js";
 import { withTransaction } from "../db/transaction.js";
 import { ScimClient } from "../platform/scim.js";
+import { assertPublicUrl } from "../platform/network.js";
 import type { SecretBox } from "../platform/secret-box.js";
 import { recordAudit } from "./audit.js";
 
@@ -36,9 +37,7 @@ export class ProvisioningService {
 
   async saveConnection(actor: RequestActor, key: string, input: ProvisioningConnectionInput): Promise<void> {
     requirePermission(actor, "member:manage");
-    const url = new URL(input.baseUrl);
-    const loopback = url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname);
-    if (url.protocol !== "https:" && !(this.allowLoopbackHttp && loopback)) throw Object.assign(new Error("The SCIM base URL must use https"), { statusCode: 400 });
+    await assertPublicUrl(input.baseUrl, { allowLoopback: this.allowLoopbackHttp });
     await withTransaction(this.pool, async client => {
       const existing = await client.query<{ token: string }>(`SELECT token FROM provisioning_connections WHERE organization_id = $1 AND tool_key = $2`, [actor.organizationId, key]);
       const token = input.token ? this.secrets.seal(input.token) : existing.rows[0]?.token;
@@ -100,6 +99,8 @@ export class ProvisioningService {
     if (!row) return true;
     const scim = new ScimClient(row.baseUrl, this.secrets.open(row.token), this.fetchImpl);
     try {
+      // Checked on every call too: the host's DNS may have changed since the URL was saved.
+      await assertPublicUrl(row.baseUrl, { allowLoopback: this.allowLoopbackHttp });
       let externalId = row.externalId;
       if (row.desiredActive) externalId = await scim.ensureActive({ email: row.email, displayName: row.displayName }, externalId);
       else if (externalId) await scim.setActive(externalId, false);
