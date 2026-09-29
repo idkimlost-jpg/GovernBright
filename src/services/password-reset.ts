@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import type pg from "pg";
 import { withTransaction } from "../db/transaction.js";
 import type { Mailer } from "../platform/mailer.js";
@@ -11,6 +13,8 @@ export class PasswordResetService {
 
   // Always resolves the same way so the response never reveals whether an account exists.
   async request(email: string): Promise<void> {
+    const startedAt = Date.now();
+    try {
     const result = await this.pool.query<{ id: string; email: string }>(
       `SELECT u.id, u.email FROM users u
       WHERE lower(u.email) = lower($1) AND u.password_hash IS NOT NULL
@@ -31,6 +35,9 @@ export class PasswordResetService {
       subject: "Reset your GovernBright password",
       text: `Someone asked to reset the password for this GovernBright account.\n\nChoose a new password here (the link works once, for one hour):\n${this.appOrigin}/?reset=${token}\n\nIf this wasn't you, ignore this email; your password stays the same.`
     }).catch(error => console.warn("Password reset email failed", error instanceof Error ? error.message : error));
+    } finally {
+      await delay(Math.max(0, 250 + randomInt(0, 31) - (Date.now() - startedAt)));
+    }
   }
 
   // Sets the new password, burns the token and signs the user out everywhere.
