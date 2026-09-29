@@ -24,9 +24,9 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 
 | Who | Work | Files | Pull request |
 |---|---|---|---|
-| Claude | Landing page with employee and admin sign-in | `public/index.html`, `public/app.js`, `public/styles.css`, `public/js/landing.js` | #4 |
-| Claude | Email owners and admins about new requests | `src/services/tool-requests.ts`, `src/services/index.ts`, `src/integration/notifications.test.ts`, `README.md` | #5 |
 | Claude | Live request-to-launch demo; launch is a same-origin `POST` | `public/app.js`, `public/js/live.js`, `public/js/requests.js`, `public/js/reports.js`, `src/services/tool-requests.ts`, `src/http/routes.ts` | #6 |
+
+Merged: #9 (these notes), #4 (landing page), #5 (admin email on new requests).
 
 Merge order:
 1. #9 (these notes)

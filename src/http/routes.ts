@@ -60,6 +60,13 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
     const { id } = idParams.parse(request.params);
     return toolRequests.decide(await actor(request), id, toolRequestDecision.parse(request.body));
   });
+  // A deliberate same-origin POST: a GET could be fetched by link prefetching or scanners and
+  // record launches that never happened. The dashboard opens the returned URL itself.
+  app.post("/api/v1/tool-requests/:id/launch", async request => {
+    requireSameOrigin(request, config);
+    const { id } = idParams.parse(request.params);
+    return toolRequests.launch(await actor(request), id);
+  });
 
   app.get("/api/v1/organization", async request => services.organization.get(await actor(request)));
   app.patch("/api/v1/organization", async request => {

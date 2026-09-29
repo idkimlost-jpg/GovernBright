@@ -1,7 +1,8 @@
 import { $, $$, can, session, request, toggle } from "./js/core.js";
 import { initAuth, showStep } from "./js/auth.js";
 import { initOverview, loadOverview, applyOverviewRole } from "./js/overview.js";
-import { initRequests, loadRequests } from "./js/requests.js";
+import { initRequests, loadRequests, ensureCatalog, isLaunchable } from "./js/requests.js";
+import { initLive, startLive, stopLive } from "./js/live.js";
 import { initPolicy, loadPolicy } from "./js/policy.js";
 import { initDiscovery, loadDiscovery } from "./js/discovery.js";
 import { initReports, loadReports } from "./js/reports.js";
@@ -35,6 +36,7 @@ async function openTab(tab) {
 }
 
 function showLogin({ keepStep = false } = {}) {
+  stopLive();
   session.user = null;
   showShell();
   toggle($("#login-view"), true); toggle($("#dashboard-view"), false);
@@ -54,6 +56,10 @@ async function showDashboard(user) {
   toggle($("#mfa-required-banner"), !!user.mfaSetupRequired);
   toggle($("#portal-notice"), portal() === "admin" && !can.manage(user.role));
   applyOverviewRole(user.role);
+  if (!user.mfaSetupRequired) {
+    await ensureCatalog().catch(() => {});
+    startLive({ launchable: isLaunchable, onChange: () => { if ($("[data-tab].active")?.dataset.tab === "requests") loadRequests().catch(() => {}); } });
+  }
   await openTab(location.hash.slice(1) || (portal() === "employee" ? "requests" : "overview"));
 }
 
@@ -62,6 +68,7 @@ $("#logout").addEventListener("click", async () => {
   try { await request("/api/v1/auth/logout", { method: "POST", body: {} }); }
   catch (error) { console.error("Sign-out request failed", error); }
   session.user = null;
+  stopLive();
   history.replaceState(null, "", "/");
   showLanding();
 });
@@ -70,6 +77,7 @@ initAuth({ onSignedIn: showDashboard });
 initLanding({ onChoose: () => showLogin() });
 initOverview();
 initRequests();
+initLive();
 initPolicy();
 initDiscovery({ onRegistered: loadOverview });
 initReports();
