@@ -22,24 +22,30 @@ export const ssoConnectionInput = z.object({
 });
 export type SsoConnectionInput = z.infer<typeof ssoConnectionInput>;
 
-export type SsoConnection = { issuer: string; clientId: string; domains: string[]; enforce: boolean; autoProvisionRole: string | null; redirectUri: string };
+export type SsoDomain = { domain: string; verified: boolean; txtName: string; txtValue: string };
+export type SsoConnection = { issuer: string; clientId: string; domains: SsoDomain[]; enforce: boolean; autoProvisionRole: string | null; redirectUri: string };
+export type ResolveTxt = (hostname: string) => Promise<string[][]>;
+
+// The DNS record an organization publishes to prove it controls a domain.
+export const verificationRecord = (domain: string, token: string) => ({ txtName: `_governbright-verification.${domain}`, txtValue: `governbright-verification=${token}` });
 
 const emailDomain = (email: string) => email.toLowerCase().split("@")[1] ?? "";
 const clientError = (statusCode: number, message: string) => Object.assign(new Error(message), { statusCode });
 
 export class SsoService {
   constructor(private readonly pool: pg.Pool, private readonly secrets: SecretBox, private readonly auth: AuthService,
-    private readonly oidc: OidcClient, private readonly appOrigin: string) {}
+    private readonly oidc: OidcClient, private readonly appOrigin: string, private readonly resolveTxt: ResolveTxt) {}
 
   get redirectUri(): string { return `${this.appOrigin}/api/v1/auth/sso/callback`; }
 
   async getConnection(actor: RequestActor): Promise<SsoConnection | null> {
     requirePermission(actor, "member:manage");
-    const result = await this.pool.query<Omit<SsoConnection, "redirectUri">>(`SELECT c.issuer, c.client_id AS "clientId", c.enforce,
-        c.auto_provision_role AS "autoProvisionRole", COALESCE(array_agg(d.domain ORDER BY d.domain) FILTER (WHERE d.domain IS NOT NULL), '{}') AS domains
-      FROM sso_connections c LEFT JOIN sso_domains d ON d.organization_id = c.organization_id
-      WHERE c.organization_id = $1 GROUP BY c.organization_id`, [actor.organizationId]);
-    return result.rows[0] ? { ...result.rows[0], redirectUri: this.redirectUri } : null;
+    const result = await this.pool.query<Omit<SsoConnection, "redirectUri" | "domains">>(`SELECT issuer, client_id AS "clientId", enforce, auto_provision_role AS "autoProvisionRole"
+      FROM sso_connections WHERE organization_id = $1`, [actor.organizationId]);
+    if (!result.rows[0]) return null;
+    const domains = await this.pool.query<{ domain: string; token: string; verified: boolean }>(`SELECT domain, verification_token AS token, verified_at IS NOT NULL AS verified
+      FROM sso_domains WHERE organization_id = $1 ORDER BY domain`, [actor.organizationId]);
+    return { ...result.rows[0], domains: domains.rows.map(d => ({ domain: d.domain, verified: d.verified, ...verificationRecord(d.domain, d.token) })), redirectUri: this.redirectUri };
   }
 
   async saveConnection(actor: RequestActor, input: SsoConnectionInput): Promise<SsoConnection> {
@@ -53,10 +59,13 @@ export class SsoService {
         VALUES ($1,$2,$3,$4,$5,$6)
         ON CONFLICT (organization_id) DO UPDATE SET issuer = $2, client_id = $3, client_secret = $4, enforce = $5, auto_provision_role = $6, updated_at = now()`,
         [actor.organizationId, input.issuer, input.clientId, secret, input.enforce, input.autoProvisionRole]);
-      await client.query(`DELETE FROM sso_domains WHERE organization_id = $1`, [actor.organizationId]);
-      for (const d of new Set(input.domains)) {
-        const inserted = await client.query(`INSERT INTO sso_domains (domain, organization_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [d, actor.organizationId]);
-        if (!inserted.rowCount) throw clientError(409, `${d} is already connected to another organization`);
+      // Keep existing claims (and their verification) for domains still listed; new ones start unverified.
+      const domains = [...new Set(input.domains)];
+      await client.query(`DELETE FROM sso_domains WHERE organization_id = $1 AND NOT (domain = ANY($2))`, [actor.organizationId, domains]);
+      for (const d of domains) {
+        const taken = await client.query(`SELECT 1 FROM sso_domains WHERE domain = $1 AND organization_id <> $2 AND verified_at IS NOT NULL`, [d, actor.organizationId]);
+        if (taken.rowCount) throw clientError(409, `${d} is already verified by another organization`);
+        await client.query(`INSERT INTO sso_domains (domain, organization_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [d, actor.organizationId]);
       }
       await recordAudit(client, actor, "sso.configured", "organization", actor.organizationId,
         { issuer: input.issuer, domains: input.domains, enforce: input.enforce, autoProvisionRole: input.autoProvisionRole, secretChanged: !!input.clientSecret });
@@ -72,19 +81,28 @@ export class SsoService {
     });
   }
 
-  // True when password sign-in is disabled for this email (owners keep a break-glass password).
-  async passwordBlocked(email: string, organizationRole: string): Promise<boolean> {
-    if (organizationRole === "owner") return false;
-    const result = await this.pool.query(`SELECT 1 FROM sso_domains d JOIN sso_connections c ON c.organization_id = d.organization_id
-      WHERE d.domain = $1 AND c.enforce`, [emailDomain(email)]);
-    return !!result.rowCount;
+  // Checks the domain's DNS TXT record and marks it verified for this organization.
+  async verifyDomain(actor: RequestActor, domain: string): Promise<SsoConnection> {
+    requirePermission(actor, "member:manage");
+    const claim = await this.pool.query<{ token: string }>(`SELECT verification_token AS token FROM sso_domains WHERE organization_id = $1 AND domain = $2`, [actor.organizationId, domain]);
+    const token = claim.rows[0]?.token;
+    if (!token) throw clientError(404, "Add this domain to your single sign-on settings first");
+    const { txtName, txtValue } = verificationRecord(domain, token);
+    const records = await this.resolveTxt(txtName).catch(() => [] as string[][]);
+    if (!records.some(chunks => chunks.join("") === txtValue)) throw clientError(400, `No matching TXT record found at ${txtName} yet. DNS changes can take a while to appear.`);
+    await withTransaction(this.pool, async client => {
+      await client.query(`UPDATE sso_domains SET verified_at = now() WHERE organization_id = $1 AND domain = $2 AND verified_at IS NULL`, [actor.organizationId, domain])
+        .catch(error => { throw (error as { code?: string }).code === "23505" ? clientError(409, `${domain} is already verified by another organization`) : error; });
+      await recordAudit(client, actor, "sso.domain_verified", "organization", actor.organizationId, { domain });
+    });
+    return (await this.getConnection(actor))!;
   }
 
   // Starts a sign-in for an email address; returns where to send the browser and the state to bind to it.
   async start(email: string): Promise<{ redirectUrl: string; state: string }> {
     const connection = await this.pool.query<{ organizationId: string; issuer: string; clientId: string }>(
       `SELECT c.organization_id AS "organizationId", c.issuer, c.client_id AS "clientId"
-      FROM sso_domains d JOIN sso_connections c ON c.organization_id = d.organization_id WHERE d.domain = $1`, [emailDomain(email)]);
+      FROM sso_domains d JOIN sso_connections c ON c.organization_id = d.organization_id WHERE d.domain = $1 AND d.verified_at IS NOT NULL`, [emailDomain(email)]);
     const row = connection.rows[0];
     if (!row) throw clientError(404, "Single sign-on is not set up for this email domain");
     const discovery = await this.oidc.discover(row.issuer);
@@ -114,8 +132,8 @@ export class SsoService {
     const claims = await this.oidc.verifyIdToken(discovery, idToken, { clientId: config.clientId, nonce: flow.nonce });
     const email = claims.email?.toLowerCase();
     if (!email || claims.email_verified === false || claims.email_verified === "false") throw new OidcError("Your identity provider did not share a verified email address");
-    const domains = await this.pool.query(`SELECT 1 FROM sso_domains WHERE organization_id = $1 AND domain = $2`, [flow.organizationId, emailDomain(email)]);
-    if (!domains.rowCount) throw new OidcError(`${emailDomain(email)} is not connected to this organization`);
+    const domains = await this.pool.query(`SELECT 1 FROM sso_domains WHERE organization_id = $1 AND domain = $2 AND verified_at IS NOT NULL`, [flow.organizationId, emailDomain(email)]);
+    if (!domains.rowCount) throw new OidcError(`${emailDomain(email)} is not a verified domain of this organization`);
 
     return withTransaction(this.pool, async client => {
       let userId = (await client.query<{ userId: string }>(`SELECT user_id AS "userId" FROM user_identities WHERE issuer = $1 AND subject = $2`, [claims.iss, claims.sub])).rows[0]?.userId;
