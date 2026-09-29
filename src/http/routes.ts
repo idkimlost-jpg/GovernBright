@@ -60,12 +60,12 @@ export async function registerRoutes(app: FastifyInstance, config: Config, servi
     const { id } = idParams.parse(request.params);
     return toolRequests.decide(await actor(request), id, toolRequestDecision.parse(request.body));
   });
-  // A plain link the employee opens in a new tab. The session cookie is SameSite=Strict, so a link
-  // on another site arrives signed out and cannot launch or record anything.
-  app.get("/api/v1/tool-requests/:id/launch", async (request, reply) => {
+  // A deliberate same-origin POST: a GET could be fetched by link prefetching or scanners and
+  // record launches that never happened. The dashboard opens the returned URL itself.
+  app.post("/api/v1/tool-requests/:id/launch", async request => {
+    requireSameOrigin(request, config);
     const { id } = idParams.parse(request.params);
-    const { url } = await toolRequests.launch(await actor(request), id);
-    return reply.redirect(url, 303);
+    return toolRequests.launch(await actor(request), id);
   });
 
   app.get("/api/v1/organization", async request => services.organization.get(await actor(request)));

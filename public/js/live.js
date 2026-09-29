@@ -7,7 +7,20 @@ const baseTitle = document.title;
 let timer = null, known = null, onChange = () => {}, launchable = () => false;
 const dismissed = new Set();
 
-export const launchUrl = id => `/api/v1/tool-requests/${encodeURIComponent(id)}/launch`;
+// Opens the tab during the click, so popup blockers allow it, and only points it at the tool once
+// the server has checked the approval and recorded the launch.
+export async function launchTool(id) {
+  const tab = window.open("", "_blank");
+  if (tab) tab.opener = null;
+  try {
+    const { url } = await request(`/api/v1/tool-requests/${encodeURIComponent(id)}/launch`, { method: "POST", body: {} });
+    if (!url.startsWith("https://")) throw new Error("This tool has no valid launch link");
+    if (tab) tab.location.replace(url); else location.assign(url);
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
+}
 
 export function startLive(options) {
   stopLive();
@@ -73,7 +86,7 @@ function showApproved(r) {
     <p class="eyebrow">Request approved</p>
     <h3>${escapeHtml(r.toolName)} is approved for you</h3>
     ${r.decisionNotes ? `<p class="live-meta">Note from your admin: ${escapeHtml(r.decisionNotes)}</p>` : ""}
-    <div class="live-actions">${launchable(r) ? `<a class="button" href="${launchUrl(r.id)}" target="_blank" rel="noopener" data-live="close">Launch ${escapeHtml(r.toolName)}</a>` : ""}<button class="secondary" data-live="close">Close</button></div>`);
+    <div class="live-actions">${launchable(r) ? `<button data-live="launch">Launch ${escapeHtml(r.toolName)}</button>` : ""}<button class="secondary" data-live="close">Close</button></div>`);
   $("#live-card").dataset.requestId = r.id;
 }
 
@@ -83,6 +96,11 @@ export function initLive() {
     if (!action) return;
     const card = $("#live-card"), id = card.dataset.requestId;
     if (action === "close") return hide();
+    if (action === "launch") {
+      try { await launchTool(id); hide(); }
+      catch (error) { show("approved", `<p class="eyebrow">Launch failed</p><p class="error">${escapeHtml(error.message)}</p><div class="live-actions"><button class="secondary" data-live="close">Close</button></div>`); }
+      return;
+    }
     if (action === "later") { dismissed.add(id); hide(); return void tick(); }
     for (const button of card.querySelectorAll("button")) button.disabled = true;
     try {

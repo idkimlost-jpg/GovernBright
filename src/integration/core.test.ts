@@ -86,7 +86,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: core", () => {
     const created = await app.inject({ method: "POST", url: "/api/v1/tool-requests", headers: { ...headers, cookie: employeeCookie }, payload: { toolName: "ChatGPT", businessPurpose: "Summaries" } });
     expect(created.statusCode).toBe(201);
     const id = created.json().id;
-    const launch = (cookie?: string) => app.inject({ method: "GET", url: `/api/v1/tool-requests/${id}/launch`, headers: cookie ? { cookie } : {} });
+    const launch = (cookie?: string, origin = config.APP_ORIGIN!) => app.inject({ method: "POST", url: `/api/v1/tool-requests/${id}/launch`, headers: { origin, ...(cookie ? { cookie } : {}) }, payload: {} });
     expect((await launch(employeeCookie)).statusCode).toBe(409);
     expect((await app.inject({ method: "PATCH", url: `/api/v1/tool-requests/${id}`, headers: { ...headers, cookie: employeeCookie }, payload: { decision: "approved" } })).statusCode).toBe(403);
     expect((await app.inject({ method: "GET", url: "/api/v1/members", headers: { cookie: employeeCookie } })).statusCode).toBe(403);
@@ -95,12 +95,14 @@ describe.skipIf(!databaseUrl)("PostgreSQL integration: core", () => {
     const mine = await app.inject({ method: "GET", url: "/api/v1/tool-requests", headers: { cookie: employeeCookie } });
     expect(mine.json()).toEqual([expect.objectContaining({ id, status: "approved" })]);
 
-    // Only the requester launches, and each launch is audited.
+    // Only the requester launches, only by a same-origin POST, and each launch is audited.
     expect((await launch()).statusCode).toBe(401);
     expect((await launch(ownerCookie)).statusCode).toBe(404);
+    expect((await launch(employeeCookie, "https://evil.example")).statusCode).toBe(403);
+    expect((await app.inject({ method: "GET", url: `/api/v1/tool-requests/${id}/launch`, headers: { cookie: employeeCookie } })).statusCode).toBe(404);
     const launched = await launch(employeeCookie);
-    expect(launched.statusCode).toBe(303);
-    expect(launched.headers.location).toBe("https://chatgpt.com");
+    expect(launched.statusCode).toBe(200);
+    expect(launched.json()).toEqual({ url: "https://chatgpt.com" });
     const audit = await h.pool.query("SELECT actor_user_id, metadata FROM audit_events WHERE target_id = $1 AND action = 'tool_request.launched'", [id]);
     expect(audit.rows).toEqual([{ actor_user_id: employee.actor.userId, metadata: expect.objectContaining({ toolName: "ChatGPT", url: "https://chatgpt.com" }) }]);
     const approval = await h.pool.query("SELECT metadata FROM audit_events WHERE target_id = $1 AND action = 'tool_request.approved'", [id]);

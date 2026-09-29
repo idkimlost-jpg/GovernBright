@@ -71,7 +71,7 @@ Normal use authenticates through the dashboard. The development header adapter l
 - `GET /api/v1/tool-requests`: your own requests; owners and admins see the whole organization
 - `POST /api/v1/tool-requests`: any member requests an AI tool (`toolName`, `businessPurpose`, optional `dataDescription`)
 - `PATCH /api/v1/tool-requests/:id`: owners and admins approve or reject a pending request (`decision`, optional `notes`)
-- `GET /api/v1/tool-requests/:id/launch`: the requester opens an approved tool; redirects to its catalog link and records `tool_request.launched`
+- `POST /api/v1/tool-requests/:id/launch`: the requester opens an approved tool; same-origin only, records `tool_request.launched` and returns its catalog link
 - `GET /api/v1/members`: owners and admins list the organization's members
 - `POST /api/v1/members`: owners and admins add a member (`email`, `displayName`, `role`, initial `password`); only owners can add owners
 - `PATCH /api/v1/members/:id`: owners and admins change a member's `role` or `active` flag; deactivation ends the member's sessions
