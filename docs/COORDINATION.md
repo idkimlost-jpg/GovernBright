@@ -17,6 +17,8 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 | 2026-09-29 | GovernBright is source-available under FSL-1.1-ALv2, not Apache 2.0. Don't open another license pull request. | #8 merged, #7 closed |
 | 2026-09-29 | Focus: one polished buyer demo — employee request → live admin popup → approval → ChatGPT launch → audit record. Don't expand the compliance dashboard until buyers have seen it. | #6 |
 | 2026-09-29 | Hosting: Render with managed PostgreSQL. Email: Postmark. | Waiting on accounts and API keys from the owner |
+| 2026-09-29 | Anything that changes state or writes an audit event is a same-origin `POST` (or `PATCH`/`PUT`/`DELETE`), never a `GET`. Link prefetching and scanners fetch GETs and would create false audit events. Launching an approved tool follows this: `POST /api/v1/tool-requests/:id/launch`. | Found by ChatGPT in #6; fixed in #6 |
+| 2026-09-29 | GovernBright is described as **source-available**, not open source. The repository stays private until the application pull requests are merged and a final credential scan of `main` is clean. | Owner |
 
 ## In progress
 
@@ -24,9 +26,17 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 |---|---|---|---|
 | Claude | Landing page with employee and admin sign-in | `public/index.html`, `public/app.js`, `public/styles.css`, `public/js/landing.js` | #4 |
 | Claude | Email owners and admins about new requests | `src/services/tool-requests.ts`, `src/services/index.ts`, `src/integration/notifications.test.ts`, `README.md` | #5 |
-| Claude | Live request-to-launch demo | `public/app.js`, `public/js/live.js`, `public/js/requests.js`, `public/js/reports.js`, `src/services/tool-requests.ts`, `src/http/routes.ts` | #6 |
+| Claude | Live request-to-launch demo; launch is a same-origin `POST` | `public/app.js`, `public/js/live.js`, `public/js/requests.js`, `public/js/reports.js`, `src/services/tool-requests.ts`, `src/http/routes.ts` | #6 |
 
-Merge order: #4, then #5, then #6. #4 and #6 both change `public/app.js`; Claude resolves that conflict after the first one merges.
+Merge order:
+1. #9 (these notes)
+2. #4 (landing page)
+3. #5 (admin email)
+4. #6 (live demo): Claude merges the updated `main` into it and resolves the `public/app.js` conflict with #4
+5. Claude reruns the full test suite and the two-browser demo on the result
+6. Credential scan of the final `main`, then the owner decides on making the repository public
+
+The full-history credential scan was clean on 2026-09-29 (gitleaks 8.28.0, all branches, plus a manual search). It becomes public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
 
 ## Known issues not yet assigned
 
