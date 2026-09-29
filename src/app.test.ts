@@ -4,7 +4,7 @@ import type { Config } from "./config.js";
 
 const config: Config = {
   NODE_ENV: "test", PORT: 3000, DATABASE_URL: "postgres://example.test/governbright",
-  ALLOW_DEV_AUTH: false, SESSION_TTL_HOURS: 12, APP_ORIGIN: "http://localhost:3000", MAIL_FROM: "test@example.test", TRUST_PROXY: false
+  ALLOW_DEV_AUTH: false, SESSION_TTL_HOURS: 12, APP_ORIGIN: "http://localhost:3000", MAIL_FROM: "test@example.test", TRUST_PROXY: false, CONTACT_EMAIL: "sales@example.test"
 };
 const user = {
   userId: "11111111-1111-4111-8111-111111111111", organizationId: "22222222-2222-4222-8222-222222222222",

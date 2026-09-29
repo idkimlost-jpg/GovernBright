@@ -21,6 +21,7 @@ import { ProvisioningService } from "./provisioning.js";
 import { OidcClient } from "../platform/oidc.js";
 import { Notifier } from "../platform/notifier.js";
 import { ToolRequestService } from "./tool-requests.js";
+import { ContactService } from "./contact.js";
 
 export type Platform = { secrets: SecretBox; mailer: Mailer; fetch?: typeof fetch; resolveTxt?: ResolveTxt };
 
@@ -51,6 +52,7 @@ export function createServices(config: Config, pool: pg.Pool, platform: Platform
     members: new MemberService(pool, provisioning),
     mfa: new MfaService(pool, secrets),
     passwordReset: new PasswordResetService(pool, mailer, appOrigin(config)),
+    contact: new ContactService(pool, mailer, config.CONTACT_EMAIL),
     organization: new OrganizationService(pool, secrets, notifier),
     sso: new SsoService(pool, secrets, auth, new OidcClient(config.NODE_ENV !== "production"), appOrigin(config), platform.resolveTxt ?? resolveTxt)
   };

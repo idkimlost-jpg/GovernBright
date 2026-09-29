@@ -40,6 +40,7 @@
 | `SMTP_URL`, `MAIL_FROM` | Outgoing mail for password resets and reminders. Without SMTP, mail is printed to the log in development and dropped in production. |
 | `POSTGRES_PASSWORD` | Database password for `docker compose` (letters and digits); use the same value in `DATABASE_URL`. Compose publishes Postgres on `127.0.0.1` only. |
 | `TRUST_PROXY` | Set behind a load balancer or reverse proxy (`true`, a hop count such as `1`, or proxy addresses) so rate limits see real client addresses. |
+| `CONTACT_EMAIL` | Receives enquiries from the landing page's contact form (default `governbright@gmail.com`). Enquiries are also stored; list them with `npm run contacts` (`node dist/scripts/list-contacts.js` in the container). |
 | `APP_ORIGIN` | Public URL; used for links in emails and Slack, and the SSO redirect URI (`<APP_ORIGIN>/api/v1/auth/sso/callback`). On Render it defaults to the service's `RENDER_EXTERNAL_URL`; set it when you add a custom domain. |
 
 ## Important security state
@@ -63,6 +64,7 @@ Normal use authenticates through the dashboard. The development header adapter l
 ## API
 
 - `GET /health`
+- `POST /api/v1/contact`: public contact form (`name`, `email`, `message`, optional `company`); same-origin, 5 per 10 minutes per address
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me`

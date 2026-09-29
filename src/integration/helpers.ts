@@ -16,7 +16,7 @@ export const password = "integration-password-2026";
 
 export const testConfig = (): Config => ({
   NODE_ENV: "test", PORT: 3000, DATABASE_URL: databaseUrl!, ALLOW_DEV_AUTH: false, SESSION_TTL_HOURS: 1,
-  APP_ORIGIN: "http://localhost:3000", APP_ENCRYPTION_KEY: randomBytes(32).toString("base64"), MAIL_FROM: "test@example.test", TRUST_PROXY: false
+  APP_ORIGIN: "http://localhost:3000", APP_ENCRYPTION_KEY: randomBytes(32).toString("base64"), MAIL_FROM: "test@example.test", TRUST_PROXY: false, CONTACT_EMAIL: "sales@example.test"
 });
 
 export type Harness = {

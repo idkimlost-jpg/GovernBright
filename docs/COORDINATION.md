@@ -24,9 +24,9 @@ Two AI assistants work on this repository for the owner: Claude (Claude Code, br
 
 | Who | Work | Files | Pull request |
 |---|---|---|---|
-| Claude | Render deploy fixes: `APP_ORIGIN` defaults to `RENDER_EXTERNAL_URL`, pasted quotes are ignored, settings errors say how to fix them | `src/config.ts`, `src/config.test.ts`, `README.md` | this PR |
+| Claude | Landing page: "What GovernBright does for your company" and a Contact us form (stored, emailed to `CONTACT_EMAIL`) | `public/index.html`, `public/styles.css`, `public/js/landing.js`, `src/services/contact.ts`, `src/http/routes.ts`, `src/db/migrations/012_contact_requests.sql`, `src/scripts/list-contacts.ts` | this PR |
 
-Merged on 2026-09-29, in order: #9 (these notes), #4 (landing page), #5 (admin email on new requests), #6 (live request-to-launch demo). After merging, the full test suite (72 tests) and the two-browser demo passed on the combined code.
+Also merged: #10 (notes update), #11 (Render settings fixes). Merged on 2026-09-29, in order: #9 (these notes), #4 (landing page), #5 (admin email on new requests), #6 (live request-to-launch demo). After merging, the full test suite (72 tests) and the two-browser demo passed on the combined code.
 
 The full-history credential scan was clean again after these merges (gitleaks 8.28.0, all branches). Public with the repository: commit author emails, and the staging hosting project ID in `staging-site/.openai/hosting.json`, which is an identifier, not a credential.
 

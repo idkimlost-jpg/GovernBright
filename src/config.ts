@@ -18,7 +18,9 @@ const schema = z.object({
   // Set when running behind a load balancer or reverse proxy so rate limits and logs see the real
   // client address: "true" (trust all), a hop count like "1", or comma-separated proxy addresses.
   TRUST_PROXY: z.string().optional().transform(v => v === undefined || v === "" || v === "false" ? false : v === "true" ? true : /^\d+$/.test(v) ? Number(v) : v),
-  MAIL_FROM: z.string().min(3).default("GovernBright <no-reply@governbright.local>")
+  MAIL_FROM: z.string().min(3).default("GovernBright <no-reply@governbright.local>"),
+  // Where enquiries from the landing page's contact form are sent.
+  CONTACT_EMAIL: z.preprocess(unquoted, z.email("CONTACT_EMAIL must be an email address").default("governbright@gmail.com"))
 }).superRefine((config, ctx) => {
   if (config.ALLOW_DEV_AUTH) {
     const hostname = config.APP_ORIGIN ? new URL(config.APP_ORIGIN).hostname : "";
